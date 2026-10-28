@@ -749,6 +749,9 @@ function voltarAoPc(b, agora) {
   b.descansoAte = agora + 15000 + Math.random() * 25000;
 }
 
+// diagnóstico no console do navegador: salaDebug()
+window.salaDebug = () => equipe.map(a => { const b = bonecos.get(a.id); return a.id + ' ' + statusVisto(a) + ' ' + b.lugar + '>' + b.livreAlvo + ' passos:' + b.passos.length; });
+
 let proximoLazer = 0;
 function agendarLazer(agora) {
   if (reduz || agora < proximoLazer || expedienteAtual === false) return;
@@ -762,7 +765,8 @@ function agendarLazer(agora) {
   const sorteio = Math.random();
 
   // conversa entre dois colegas
-  if (sorteio < .35 && parados.length >= 2 && andando === 0) {
+  if (sorteio < .45 && parados.length >= 2 && andando <= 1) {
+    if (livres.some(({ b }) => b.conversa)) return;   // uma conversa por vez
     const ocupadas = new Set(livres.filter(({ b }) => b.conversa).map(({ b }) => b.conversa.roda));
     const livresRodas = RODAS.map((r, i) => i).filter(i => !ocupadas.has(i));
     if (!livresRodas.length) return;
@@ -954,6 +958,8 @@ function atualizarBoneco(a, b, t, dt, agora) {
       if (!b.passos.length) {
         b.lugar = b.destino;
         if (b.lugar === 'cafe' || b.lugar === 'snack') b.item = b.lugar;
+        // às vezes comenta algo sozinho ao chegar no café, no sofá ou no passeio
+        if (['cafe', 'snack', 'sofa', 'passeio'].includes(b.lugar) && Math.random() < .5) falar(b, sortear(FALAS[a.id] || MAQUINAS), agora);
         if (b.lugar === 'pe' || b.lugar === 'cadeira' || b.lugar === 'reuniao' || b.lugar === 'fora') b.item = null;
         const f = posFinal(a, b.lugar); if (f.rot !== null) b.raiz.rotation.y = f.rot;
       }
