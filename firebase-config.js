@@ -9,5 +9,5 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "753726692176",
   appId: "1:753726692176:web:6ef008859b517668b8ea55"
 };
-// Única conta que pode mandar pedidos pela aba.
-window.DONA_EMAIL = "mcctecfag@gmail.com";
+// Contas que podem mandar pedidos pela aba (as mesmas de regras-firebase.json).
+window.DONAS_EMAIL = ["mcctecfag@gmail.com", "tecfagfinanceiro3@gmail.com"];

@@ -1103,7 +1103,7 @@ function iniciarFirebase() {
   });
   auth.onAuthStateChanged(u => {
     if (desligar) { desligar(); desligar = null; }
-    const dona = u && u.email === window.DONA_EMAIL;
+    const dona = !!(u && (window.DONAS_EMAIL || []).includes(u.email));
     btnLogin.textContent = u ? 'Sair' : 'Entrar com Google';
     form.hidden = !dona;
     aviso.textContent = !u ? 'Entre com a conta da Tecfag para mandar pedidos.' : dona ? '' : 'Esta conta não pode mandar pedidos.';
