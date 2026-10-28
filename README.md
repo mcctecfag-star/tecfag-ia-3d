@@ -2,21 +2,27 @@
 
 Sala 3D onde a equipe de agentes de IA da Tecfag aparece trabalhando.
 
-## Como abrir
+## Onde ver
 
-Dê dois cliques em `equipe-3d.html` (Chrome ou Edge). Precisa de internet, porque o motor 3D (Three.js) e as fontes são baixados na hora.
+- **Site ao vivo:** https://mcctecfag-star.github.io/tecfag-ia-3d/ (lê o Firebase; mostra só os status, sem o texto das tarefas).
+- **No computador:** dois cliques em `equipe-3d.html` (lê `equipe.js` a cada 5 s, com as tarefas completas).
 
 ## Como funciona
 
-- A equipe fica em `equipe.js`. A página relê esse arquivo a cada 15 segundos.
-- Status de cada agente: `trabalhando`, `esperando`, `livre` ou `concluido`.
-- `genero`: `"f"` para mulher, `"m"` para homem.
-- Expediente de segunda a sexta. Às 08:00 os agentes entram pela porta e batem o ponto; às 18:00 batem o ponto de saída e vão embora. Fora desse horário a sala fica na meia-luz.
+- Os ganchos do Claude Code chamam `agentes-hook.js`, que atualiza `equipe.json` e `equipe.js` quando uma mensagem fala com um agente ("Tráfego, revisa...", "@dados ...", "manda a Curadoria ...").
+- `ponte.js` (abra com `iniciar-ponte.bat` e deixe a janela aberta):
+  - publica a sala no Firebase a cada mudança;
+  - recebe os pedidos feitos pela caixa "Pedir tarefa" do site e roda o Claude Code de terminal. Respostas completas ficam em `resultados/`.
+- Só a conta `mcctecfag@gmail.com` pode mandar e ver pedidos (`regras-firebase.json`; aplique com `node ponte.js regras`).
+- Pedidos da aba só podem ler, pesquisar e escrever em `resultados/` (lista `FERRAMENTAS_LIBERADAS` em `ponte.js`).
+- Status: `trabalhando`, `esperando`, `reuniao`, `livre` ou `concluido`.
+- Expediente de segunda a sexta, 08:00 às 18:00, com ponto na entrada.
 
-## Testar o ponto
+## Arquivos que não vão para o GitHub
 
-Abra com um horário simulado no endereço:
+`firebase-chave.json` (senha do projeto), `resultados/`, `estado-sessoes.json`, `ponte.log`, `node_modules/`.
 
-- `equipe-3d.html?hora=07:59` mostra a chegada às 08:00
-- `equipe-3d.html?hora=17:59` mostra a saída às 18:00
-- `&dia=1` a `&dia=5` escolhe o dia da semana (1 = segunda)
+## Testar
+
+- `equipe-3d.html?hora=07:59` mostra a chegada; `?hora=17:59` a saída; `&dia=1` a `&dia=5` escolhe o dia.
+- `?demo=1` mostra status de exemplo.

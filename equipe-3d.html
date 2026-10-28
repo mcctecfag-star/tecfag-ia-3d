@@ -25,6 +25,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: var(--body); overflow: hidden; }
 #cena { position: fixed; inset: 0; }
 #cena canvas { display: block; }
@@ -71,6 +72,18 @@ h3 { font: 600 13px var(--display); letter-spacing: .12em; text-transform: upper
 .mural { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .mural li { font-size: 13px; border-left: 2px solid var(--cyan); padding-left: 8px; display: grid; }
 .mural .quem { font-weight: 700; }
+.pedir { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
+.pedir textarea { width: 100%; min-height: 70px; resize: vertical; background: rgba(255,255,255,.04); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; font-size: 13.5px; }
+.pedir textarea:focus-visible { outline: 2px solid var(--cyan); }
+.pedir .linha { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.pedir button { font: 600 13px var(--display); color: #06131c; background: var(--cyan); border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+.pedir button.sec { background: none; color: var(--fg); border: 1px solid var(--line); }
+.pedir button:disabled { opacity: .5; cursor: default; }
+.pedir .info { color: var(--muted); font-size: 12.5px; }
+.pedidos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pedidos li { font-size: 13px; display: grid; gap: 2px; border-left: 2px solid var(--idle); padding-left: 8px; }
+.pedidos li.executando { border-color: var(--work); } .pedidos li.concluido { border-color: var(--ok); } .pedidos li.erro { border-color: var(--wait); }
+.pedidos details { color: var(--muted); } .pedidos details p { white-space: pre-wrap; color: var(--fg); margin: 4px 0 0; max-height: 220px; overflow: auto; }
 .dica { position: fixed; left: 16px; bottom: 16px; z-index: 5; color: var(--muted); font-size: 12.5px; pointer-events: none; }
 .erro { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; z-index: 10; }
 .rotulo {
@@ -87,6 +100,10 @@ h3 { font: 600 13px var(--display); letter-spacing: .12em; text-transform: upper
   .dica { display: none; }
 }
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -115,6 +132,15 @@ h3 { font: 600 13px var(--display); letter-spacing: .12em; text-transform: upper
     <button id="btnPainel" type="button" aria-expanded="true">Recolher</button>
   </div>
   <div class="rolagem">
+    <section class="pedir" id="pedir" hidden>
+      <div class="linha"><strong>Pedir tarefa</strong><button type="button" class="sec" id="btnLogin">Entrar com Google</button></div>
+      <div id="formPedido" hidden>
+        <textarea id="textoPedido" maxlength="2000" placeholder="Ex.: Copy, faz 3 ganchos para o anúncio da seladora"></textarea>
+        <div class="linha"><span class="info" id="infoPedido">Comece com o nome do agente.</span><button type="button" id="btnEnviar">Enviar</button></div>
+        <ol class="pedidos" id="listaPedidos"></ol>
+      </div>
+      <span class="info" id="avisoPedido"></span>
+    </section>
     <div id="fichas" style="display:grid;gap:10px"></div>
     <h3>Mural</h3>
     <ol class="mural" id="mural"></ol>
@@ -1045,7 +1071,79 @@ function renderPainel(dados) {
   });
 }
 
-// ---------- dados: relê equipe.js a cada 15 s ----------
+// ---------- dados ----------
+// No computador (arquivo local) a sala lê equipe.js a cada 5 s, com o texto das tarefas.
+// No site (GitHub) lê o Firebase ao vivo, só com os status, e mostra a caixa de pedidos.
+const LOCAL = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+const temFirebase = !!(window.firebase && window.FIREBASE_CONFIG);
+
+function iniciarFirebase() {
+  firebase.initializeApp(window.FIREBASE_CONFIG);
+  const db = firebase.database();
+  db.ref('sala').on('value', snap => {
+    const v = snap.val();
+    if (v) aplicar({ agentes: (v.agentes || []).map(a => ({ ...a, tarefa: '' })), mural: v.mural || [] });
+  }, () => carregarArquivo());
+
+  // pedidos: só a conta dona consegue ler e gravar (regras do banco)
+  const caixa = document.getElementById('pedir');
+  const btnLogin = document.getElementById('btnLogin');
+  const form = document.getElementById('formPedido');
+  const aviso = document.getElementById('avisoPedido');
+  const txt = document.getElementById('textoPedido');
+  const btnEnviar = document.getElementById('btnEnviar');
+  const info = document.getElementById('infoPedido');
+  const lista = document.getElementById('listaPedidos');
+  caixa.hidden = false;
+  let desligar = null;
+  const auth = firebase.auth();
+  btnLogin.addEventListener('click', () => {
+    if (auth.currentUser) auth.signOut();
+    else auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => { aviso.textContent = 'Não foi possível entrar: ' + e.message; });
+  });
+  auth.onAuthStateChanged(u => {
+    if (desligar) { desligar(); desligar = null; }
+    const dona = u && u.email === window.DONA_EMAIL;
+    btnLogin.textContent = u ? 'Sair' : 'Entrar com Google';
+    form.hidden = !dona;
+    aviso.textContent = !u ? 'Entre com a conta da Tecfag para mandar pedidos.' : dona ? '' : 'Esta conta não pode mandar pedidos.';
+    if (!dona) return;
+    const q = db.ref('pedidos').orderByChild('criadoEm').limitToLast(8);
+    const cb = q.on('value', snap => {
+      const itens = []; snap.forEach(c => { itens.push({ id: c.key, ...c.val() }); });
+      lista.replaceChildren();
+      itens.reverse().forEach(p => {
+        const li = document.createElement('li'); li.className = p.status;
+        const t = document.createElement('span'); t.textContent = p.texto;
+        const s = document.createElement('span'); s.className = 'quando';
+        s.textContent = ({ novo: 'Na fila', executando: 'Em andamento', concluido: 'Concluído', erro: 'Deu erro' })[p.status] + ' · ' + relativo(p.criadoEm);
+        li.append(t, s);
+        if (p.resposta) {
+          const d = document.createElement('details'); const sm = document.createElement('summary'); sm.textContent = 'Ver resposta';
+          const pr = document.createElement('p'); pr.textContent = p.resposta; d.append(sm, pr); li.append(d);
+        }
+        lista.appendChild(li);
+      });
+    }, e => { aviso.textContent = 'Sem acesso aos pedidos: ' + e.message; });
+    desligar = () => q.off('value', cb);
+  });
+  btnEnviar.addEventListener('click', async () => {
+    const texto = txt.value.trim();
+    if (!texto) { info.textContent = 'Escreva o pedido primeiro.'; return; }
+    btnEnviar.disabled = true;
+    try {
+      await db.ref('pedidos').push({ texto, status: 'novo', criadoEm: new Date().toISOString(), de: auth.currentUser.email });
+      txt.value = ''; info.textContent = 'Pedido enviado. Ele roda quando o computador da Tecfag estiver com a ponte ligada.';
+    } catch (e) { info.textContent = 'Não foi enviado: ' + e.message; }
+    btnEnviar.disabled = false;
+  });
+}
+
+function carregarArquivo() {
+  carregar();
+  setInterval(carregar, 5000);
+}
+
 function carregar() {
   const s = document.createElement('script');
   s.src = 'equipe.js?t=' + Date.now();
@@ -1053,8 +1151,7 @@ function carregar() {
   s.onerror = () => { s.remove(); if (!equipe.length) document.getElementById('fichas').textContent = 'Não encontrei o arquivo equipe.js na mesma pasta desta página.'; };
   document.head.appendChild(s);
 }
-carregar();
-setInterval(carregar, 15000);
+if (!LOCAL && temFirebase) iniciarFirebase(); else carregarArquivo();
 loop();
 </script>
 </body>
