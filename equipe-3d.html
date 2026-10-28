@@ -92,6 +92,12 @@ h3 { font: 600 13px var(--display); letter-spacing: .12em; text-transform: upper
 }
 .rotulo i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; }
 .rotulo.sel { border-color: var(--cyan); }
+.balao {
+  position: relative; max-width: 190px; padding: 6px 10px; border-radius: 12px;
+  background: #f4f8fa; color: #0b1622; font: 600 12px var(--body); line-height: 1.3; text-align: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35); pointer-events: none;
+}
+.balao::after { content: ""; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: #f4f8fa; }
 .rotulo.local { font-size: 13px; letter-spacing: .1em; color: var(--cyan); border-color: var(--cyan); }
 @media (max-width: 760px) {
   .topo { left: 12px; top: 12px; max-width: calc(100vw - 24px); }
@@ -169,12 +175,14 @@ const hex6 = n => '#' + n.toString(16).padStart(6, '0');
 // e corredor lateral (CORR_X) que leva à sala de reunião e à copa, à direita.
 const MESAS = [];
 for (const z of [-3, 1.5]) for (const x of [-6, -3, 0, 3]) MESAS.push([x, z]);
+MESAS.push([-9, 1.5]);   // mesa 8, perto da entrada (Rotina)
 const CORR_Z = -0.6, FRENTE_Z = 4.6, CORR_X = 5.2;
 const PORTA = V(-11.6, 0, 5.6);
 const PONTO = V(-9.6, 0, 4.75);      // onde a pessoa para; o totem fica em z 4.0
 const CAFE_PE = V(7.6, 0, 1.9), SNACK_PE = V(10.4, 0, 1.9);
 const ASSENTOS = [7.8, 8.6, 9.4, 10.2].map(x => ({ p: V(x, 0, -3.05), rot: Math.PI, frente: true }))
-  .concat([7.8, 8.6, 9.4, 10.2].map(x => ({ p: V(x, 0, -5.55), rot: 0, frente: false })));
+  .concat([7.8, 8.6, 9.4, 10.2].map(x => ({ p: V(x, 0, -5.55), rot: 0, frente: false })))
+  .concat([{ p: V(7.0, 0, -4.3), rot: Math.PI / 2, cabeceira: true }]);   // cabeceira, para a 9ª pessoa
 
 // ---------- relógio e expediente ----------
 // Para testar: ?hora=07:59 (e opcional &dia=1 a 5). ?demo=1 mostra status de exemplo.
@@ -353,7 +361,7 @@ MESAS.forEach(([x, z], i) => {
   monitores[i] = tex;
 });
 // painéis de luz no teto
-for (const z of [-3, 1.5]) for (const x of [-6, -3, 0, 3]) box(1.4, .04, .3, neon(0xeaf6ff), x, 3.95, z).castShadow = false;
+MESAS.forEach(([x, z]) => { box(1.4, .04, .3, neon(0xeaf6ff), x, 3.95, z).castShadow = false; });
 
 // ---------- entrada e relógio de ponto ----------
 box(.08, 2.3, 1.3, mat(0x0f1b28, { metalness: .5 }), -12.0, 1.15, 5.6);
@@ -401,7 +409,7 @@ let pontoFlash = 0, pontoNome = '';
   fita.scale.set(1.6, .7, 1); fita.rotation.x = Math.PI / 2; fita.position.set(9, .73, -4.3); scene.add(fita);
   // cadeiras
   ASSENTOS.forEach(s => {
-    const c = new THREE.Group(); c.position.copy(s.p); c.rotation.y = s.rot; scene.add(c);
+    const c = new THREE.Group(); c.position.copy(s.p); c.rotation.y = s.rot + Math.PI; scene.add(c);   // encosto atrás de quem senta
     box(.46, .07, .46, mat(0x3b2f5a), 0, .48, 0, c);
     box(.46, .5, .06, mat(0x3b2f5a), 0, .78, .23, c);
     box(.05, .44, .05, mat(0x101a24, { metalness: .7 }), 0, .22, 0, c);
@@ -633,12 +641,17 @@ function criarBoneco(a) {
   const bol = document.createElement('i'); const nm = document.createElement('span'); nm.style.color = 'var(--fg)';
   div.append(bol, nm);
   const rot = new CSS2DObject(div); raiz.add(rot);
+  // balão de fala
+  const balaoDiv = document.createElement('div'); balaoDiv.className = 'balao';
+  const balaoTxt = document.createElement('span'); balaoDiv.appendChild(balaoTxt);
+  const balao = new CSS2DObject(balaoDiv); balao.position.y = 2.75; balao.visible = false; raiz.add(balao);
 
   raiz.traverse(o => { o.userData.agenteId = a.id; });
   scene.add(raiz);
-  return { raiz, corpo, bracoE, bracoD, pernaE, pernaD, holo, anel, alerta, ok, div, nm, rot, copo, pacote,
+  return { raiz, corpo, bracoE, bracoD, pernaE, pernaD, holo, anel, alerta, ok, div, nm, rot, copo, pacote, balao, balaoTxt, balaoAte: 0,
     lugar: null, destino: null, passos: [], pausaAte: 0, liberado: 0, chegada: 0, saida: 0,
-    livreAlvo: 'pe', livreAte: performance.now() + 3000 + h % 6000, item: null };
+    livreAlvo: 'cadeira', livreAte: 0, descansoAte: performance.now() + 4000 + h % 20000, item: null,
+    sofa: null, passeio: null, conversa: null, conversaAnterior: null };
 }
 
 const bonecos = new Map();
@@ -659,10 +672,16 @@ function ida(a, lugar) {
     case 'reuniao': {
       const s = ASSENTOS[a.mesa % ASSENTOS.length];
       const base = [...corredor, V(7.4, 0, CORR_Z), V(7.4, 0, -2.3)];
-      const fim = s.frente ? [V(s.p.x, 0, -2.4), s.p.clone()] : [V(6.8, 0, -2.4), V(6.8, 0, -6.3), V(s.p.x, 0, -6.3), s.p.clone()];
+      const fim = s.frente ? [V(s.p.x, 0, -2.4), s.p.clone()]
+        : s.cabeceira ? [V(6.8, 0, -2.4), V(6.8, 0, s.p.z), s.p.clone()]
+        : [V(6.8, 0, -2.4), V(6.8, 0, -6.3), V(s.p.x, 0, -6.3), s.p.clone()];
       return [...base, ...fim].map(p => ({ p }));
     }
     case 'fora': return [{ p: V(p.x, 0, FRENTE_Z) }, { p: V(PONTO.x, 0, FRENTE_Z) }, { p: PONTO.clone(), pausa: 1600 }, { p: PORTA.clone() }];
+    // lazer de quem está livre (o lugar exato fica guardado no boneco)
+    case 'sofa': { const s = bonecos.get(a.id).sofa; return [V(p.x, 0, FRENTE_Z), V(s.x, 0, FRENTE_Z), V(s.x, 0, SOFA_Z)].map(p => ({ p })); }
+    case 'passeio': { const s = bonecos.get(a.id).passeio; return [V(p.x, 0, CORR_Z), V(s.p.x, 0, CORR_Z), s.p.clone()].map(p => ({ p })); }
+    case 'conversa': { const bb = bonecos.get(a.id), s = (bb.conversa || bb.conversaAnterior).spot; return [V(p.x, 0, FRENTE_Z), V(s.x, 0, FRENTE_Z), s.clone()].map(p => ({ p })); }
   }
   return [];
 }
@@ -679,15 +698,22 @@ function posFinal(a, lugar) {
     case 'cafe': return { p: CAFE_PE.clone(), rot: Math.PI, sentado: false };
     case 'snack': return { p: SNACK_PE.clone(), rot: Math.PI, sentado: false };
     case 'fora': return { p: PORTA.clone(), rot: 0, sentado: false };
+    case 'sofa': return { p: V(bonecos.get(a.id).sofa.x, 0, SOFA_Z), rot: Math.PI, sentado: true };
+    case 'passeio': { const s = bonecos.get(a.id).passeio; return { p: s.p.clone(), rot: s.rot, sentado: false }; }
+    case 'conversa': { const bb = bonecos.get(a.id), c = bb.conversa || bb.conversaAnterior; return { p: c.spot.clone(), rot: c.papel === 'A' ? Math.PI / 2 : -Math.PI / 2, sentado: false }; }
     default: return { p: pePonto(a), rot: null, sentado: false };
   }
 }
 
 // O ✓ de concluído fica alguns minutos; depois o agente volta a ficar livre (levanta, vai ao café...).
 const CONCLUIDO_MS = 3 * 60 * 1000;
+const SEM_SINAL_MS = 30 * 60 * 1000;
 function statusVisto(a) {
   if (DEMO) return ['trabalhando', 'reuniao', 'reuniao', 'livre', 'concluido', 'trabalhando', 'reuniao', 'esperando'][a.mesa] || a.status;
-  if (a.status === 'concluido' && Date.now() - new Date(a.atualizadoEm || 0).getTime() > CONCLUIDO_MS) return 'livre';
+  const idade = Date.now() - new Date(a.atualizadoEm || 0).getTime();
+  if (a.status === 'concluido' && idade > CONCLUIDO_MS) return 'livre';
+  // trabalhando/reunião sem sinal de vida há 30 min: a conversa foi fechada sem avisar
+  if ((a.status === 'trabalhando' || a.status === 'reuniao') && idade > SEM_SINAL_MS) return 'livre';
   return a.status;
 }
 function lugarDesejado(a, b, agora) {
@@ -695,16 +721,117 @@ function lugarDesejado(a, b, agora) {
   if (!exp && agora >= b.saida) return 'fora';
   if (exp && b.lugar === 'fora' && agora < b.chegada) return 'fora';
   const st = statusVisto(a);
+  if (st !== 'livre' && b.livreAlvo !== 'cadeira' && b.livreAlvo !== 'conversa') b.livreAlvo = 'cadeira';
   if (st === 'trabalhando' || st === 'concluido') return 'cadeira';
   if (st === 'esperando') return 'pe';
   if (st === 'reuniao') return 'reuniao';
-  // livre: alterna entre a mesa, o café e a máquina de snacks
-  if (b.lugar === b.livreAlvo && agora > b.livreAte) {
-    if (b.livreAlvo === 'pe') { b.livreAlvo = Math.random() < .6 ? 'cafe' : 'snack'; b.livreAte = agora + 4000 + Math.random() * 2500; }
-    else { b.livreAlvo = 'pe'; b.livreAte = agora + 7000 + Math.random() * 7000; }
+  // livre: fica no computador e, de vez em quando, o "agendador de lazer" manda dar uma volta
+  if (reduz) return 'cadeira';
+  if (b.livreAlvo !== 'cadeira' && b.livreAlvo !== 'conversa' && b.lugar === b.livreAlvo && b.livreAte && agora > b.livreAte) voltarAoPc(b, agora);
+  return b.livreAlvo;
+}
+
+// ---------- lazer de quem está livre ----------
+// Um "agendador" escolhe de tempos em tempos quem levanta, para nunca ficar todo mundo andando:
+// no máximo 2 pessoas em movimento e cada uma descansa no PC entre uma volta e outra.
+const SOFA_Z = 6.3;
+const SOFA = [8.1, 9.9];
+const PASSEIOS = [
+  { p: V(-1.5, 0, -5.9), rot: Math.PI },      // olhando o telão
+  { p: V(-10.6, 0, -3.4), rot: -Math.PI / 2 }, // olhando o jardim vertical
+  { p: V(4.3, 0, -6.0), rot: Math.PI },       // perto da planta do fundo
+  { p: V(-6.2, 0, 4.3), rot: 0 }              // perto da entrada
+];
+const RODAS = [[V(-4.6, 0, 4.4), V(-3.8, 0, 4.4)], [V(1.4, 0, 4.4), V(2.2, 0, 4.4)], [V(5.6, 0, 4.4), V(6.4, 0, 4.4)]];
+
+function voltarAoPc(b, agora) {
+  b.livreAlvo = 'cadeira'; b.livreAte = 0;
+  b.descansoAte = agora + 15000 + Math.random() * 25000;
+}
+
+let proximoLazer = 0;
+function agendarLazer(agora) {
+  if (reduz || agora < proximoLazer || expedienteAtual === false) return;
+  proximoLazer = agora + 5000 + Math.random() * 5000;
+  const livres = equipe.map(a => ({ a, b: bonecos.get(a.id) }))
+    .filter(({ a, b }) => b && statusVisto(a) === 'livre' && b.lugar !== 'fora');
+  const andando = livres.filter(({ b }) => b.passos.length || b.livreAlvo !== b.lugar).length;
+  if (andando >= 2) return;
+  const parados = livres.filter(({ b }) => b.lugar === 'cadeira' && b.livreAlvo === 'cadeira' && !b.passos.length && agora > (b.descansoAte || 0));
+  if (!parados.length) return;
+  const sorteio = Math.random();
+
+  // conversa entre dois colegas
+  if (sorteio < .35 && parados.length >= 2 && andando === 0) {
+    const ocupadas = new Set(livres.filter(({ b }) => b.conversa).map(({ b }) => b.conversa.roda));
+    const livresRodas = RODAS.map((r, i) => i).filter(i => !ocupadas.has(i));
+    if (!livresRodas.length) return;
+    const roda = livresRodas[Math.floor(Math.random() * livresRodas.length)];
+    const [x, y] = parados.sort(() => Math.random() - .5);
+    x.b.conversa = { roda, spot: RODAS[roda][0], papel: 'A', par: y.a.id };
+    y.b.conversa = { roda, spot: RODAS[roda][1], papel: 'B', par: x.a.id };
+    x.b.livreAlvo = y.b.livreAlvo = 'conversa';
+    return;
   }
-  if (b.livreAlvo !== 'pe' && b.lugar !== b.livreAlvo && b.lugar !== 'pe') return 'pe';
-  return reduz ? 'pe' : b.livreAlvo;
+
+  const { b } = parados[Math.floor(Math.random() * parados.length)];
+  if (sorteio < .55) { b.livreAlvo = 'cafe'; b.livreAte = agora + 6000 + Math.random() * 4000; }
+  else if (sorteio < .7) { b.livreAlvo = 'snack'; b.livreAte = agora + 5000 + Math.random() * 3000; }
+  else if (sorteio < .85) {
+    const usados = new Set(livres.filter(x => x.b.livreAlvo === 'sofa').map(x => x.b.sofa.x));
+    const assento = SOFA.find(x => !usados.has(x));
+    if (assento === undefined) return;
+    b.sofa = { x: assento }; b.livreAlvo = 'sofa'; b.livreAte = agora + 15000 + Math.random() * 15000;
+  } else {
+    const usados = new Set(livres.filter(x => x.b.livreAlvo === 'passeio').map(x => x.b.passeio.p.x));
+    const opcoes = PASSEIOS.filter(s => !usados.has(s.p.x));
+    if (!opcoes.length) return;
+    b.passeio = opcoes[Math.floor(Math.random() * opcoes.length)]; b.livreAlvo = 'passeio'; b.livreAte = agora + 6000 + Math.random() * 5000;
+  }
+}
+
+// Falas: cada um fala do próprio assunto. Sem números, porque o site é público.
+const FALAS = {
+  trafego: ['Esse criativo da seladora já cansou, bora trocar', 'Remarketing da envasadora tá rendendo', 'Vou testar um público novo de indústria', 'Frequência subiu, hora de renovar anúncio', 'Vídeo de máquina rodando segura mais a atenção'],
+  copy: ['Premissa vende mais que promessa', 'Gancho bom fala da dor do dono da fábrica', 'A dosadora pede uma copy sobre precisão', 'Pensei num título sobre produtividade', 'Menos adjetivo, mais cena real da produção'],
+  curadoria: ['Achei vídeos novos da rotuladora no Z:', 'Esse estático serve pra público frio', 'Falta take da envasadora em close', 'O carrossel da seladora já rodou demais', 'Separei os melhores cortes do Summit'],
+  comercial: ['Lead de cosméticos perguntou da envasadora', 'Tem orçamento parado esperando retorno', 'Cliente quer saber prazo da seladora em L', 'Follow-up rápido fecha mais negócio', 'Quem pede vídeo da máquina já tá quente'],
+  atendimento: ['Fila tranquila no RD Conversas agora', 'Perguntaram sobre assistência técnica', 'Cliente pediu vídeo da dosadora funcionando', 'Muita gente chega pelo anúncio da seladora', 'Respondi rapidinho, o cliente adorou'],
+  designer: ['Fiz um layout novo pro Summit', 'Máquina em fundo limpo chama mais atenção', 'Ajustei as cores da Personnalité', 'O motion da envasadora ficou pronto', 'Quero refazer a foto da rotuladora'],
+  dados: ['O painel de leads por máquina tá pronto', 'Cruzei os leads do Meta com o CRM', 'Fim de semana sempre cai o volume', 'A Personnalité tem ticket maior', 'Vou separar os dados por região'],
+  automacao: ['Montei um fluxo pra quem baixou catálogo', 'Assunto curto abre mais e-mail', 'Segmentei os leads de alimentos', 'O disparo de amanhã já tá agendado', 'Nutrição pra quem pediu orçamento e sumiu'],
+  rotina: ['O relatório das 8h já saiu', 'Conferi os gastos de ontem', 'Segunda tem revisão das campanhas', 'Organizei as pastas do servidor', 'Lembrete: atualizar o catálogo']
+};
+const RESPOSTAS = ['Boa! Me manda depois?', 'Faz sentido', 'Bora testar!', 'Anotado', 'Concordo total', 'Isso ajuda muito aqui', 'Vou falar com o time', 'Show, me avisa'];
+const MAQUINAS = ['Qual máquina tá saindo mais?', 'A seladora continua campeã de pedidos', 'Envasadora pra líquido e pastoso, né?', 'Dosadora semiautomática é ótima pra começar', 'A rotuladora chama atenção no vídeo'];
+const sortear = l => l[Math.floor(Math.random() * l.length)];
+
+function falar(b, texto, agora) {
+  b.balaoTxt.textContent = texto;
+  b.balaoAte = agora + 3400;
+}
+
+function conduzirConversas(agora) {
+  equipe.forEach(a => {
+    const b = bonecos.get(a.id);
+    if (!b || !b.conversa || b.conversa.papel !== 'A') return;
+    const parA = equipe.find(x => x.id === b.conversa.par), pb = parA && bonecos.get(parA.id);
+    const encerrar = () => {
+      [b, pb].forEach(x => { if (x) { if (x.conversa) x.conversaAnterior = x.conversa; x.conversa = null; x.dialogo = null; if (x.livreAlvo === 'conversa') voltarAoPc(x, agora); } });
+    };
+    if (!pb || !pb.conversa || statusVisto(a) !== 'livre' || statusVisto(parA) !== 'livre') return encerrar();
+    if (b.lugar !== 'conversa' || pb.lugar !== 'conversa' || b.passos.length || pb.passos.length) return;
+    if (!b.dialogo) {
+      const linhas = [[b, sortear(FALAS[a.id] || MAQUINAS)], [pb, sortear(RESPOSTAS)], [pb, sortear(Math.random() < .5 ? MAQUINAS : (FALAS[parA.id] || MAQUINAS))], [b, sortear(RESPOSTAS)]];
+      b.dialogo = { linhas, i: 0, prox: agora + 600 };
+    }
+    const d = b.dialogo;
+    if (agora < d.prox) return;
+    if (d.i >= d.linhas.length) return encerrar();
+    const [quem, texto] = d.linhas[d.i++];
+    falar(quem, texto, agora);
+    d.prox = agora + 3800;
+  });
 }
 
 function aplicar(dados) {
@@ -716,16 +843,16 @@ function aplicar(dados) {
   lista.forEach(a => { if (Number.isInteger(a.mesa) && a.mesa >= 0 && a.mesa < MESAS.length && !usadas.has(a.mesa)) usadas.add(a.mesa); else a.mesa = -1; });
   lista.forEach(a => { if (a.mesa === -1) { let i = 0; while (usadas.has(i)) i++; a.mesa = i; usadas.add(i); } });
 
-  for (const [id, b] of bonecos) if (!lista.find(a => a.id === id)) { b.raiz.removeFromParent(); b.rot.element.remove(); bonecos.delete(id); }
+  for (const [id, b] of bonecos) if (!lista.find(a => a.id === id)) { b.raiz.removeFromParent(); b.rot.element.remove(); b.balao.element.remove(); bonecos.delete(id); }
   const agora = performance.now();
   lista.forEach(a => {
     const antigo = equipe.find(x => x.id === a.id);
     let b = bonecos.get(a.id);
     const mudouVisual = antigo && JSON.stringify([antigo.aparencia, antigo.cor, antigo.genero]) !== JSON.stringify([a.aparencia, a.cor, a.genero]);
-    if (b && mudouVisual) { const l = b.lugar; b.raiz.removeFromParent(); b.rot.element.remove(); bonecos.delete(a.id); b = null; a._lugar = l; }
+    if (b && mudouVisual) { const l = b.lugar; b.raiz.removeFromParent(); b.rot.element.remove(); b.balao.element.remove(); bonecos.delete(a.id); b = null; a._lugar = l; }
     if (!b) {
       b = criarBoneco(a); bonecos.set(a.id, b);
-      const inicial = a._lugar || (noExpediente(agoraReal()) ? lugarDesejado(a, { ...b, lugar: 'pe', livreAlvo: 'pe' }, agora) : 'fora');
+      const inicial = a._lugar || (noExpediente(agoraReal()) ? lugarDesejado(a, { ...b, lugar: 'cadeira', livreAlvo: 'cadeira' }, agora) : 'fora');
       colocar(a, b, inicial);
     }
     b.nm.textContent = a.nome;
@@ -751,8 +878,9 @@ function pose(b, sentado, t, andando) {
     b.corpo.position.y = -.24;
     b.pernaE.rotation.x = b.pernaD.rotation.x = -Math.PI / 2;
     const dig = b.digitando && !reduz;
-    b.bracoE.rotation.x = -1.1 + (dig ? Math.sin(t * 14) * .12 : 0);
-    b.bracoD.rotation.x = -1.1 + (dig ? Math.sin(t * 14 + 1.6) * .12 : 0);
+    const base = b.lugar === 'sofa' && !b.passos.length ? -.25 : -1.1;   // no sofá, braços relaxados
+    b.bracoE.rotation.x = base + (dig ? Math.sin(t * 14) * .12 : 0);
+    b.bracoD.rotation.x = (b.item && base > -1 ? -1.0 : base) + (dig ? Math.sin(t * 14 + 1.6) * .12 : 0);
   } else {
     b.corpo.position.y = andando ? Math.abs(Math.sin(t * 8)) * .035 : 0;
     const s = andando && !reduz ? Math.sin(t * 8) * .55 : 0;
@@ -800,6 +928,7 @@ function atualizarBoneco(a, b, t, dt, agora) {
   }
   const visivel = !(b.lugar === 'fora' && !b.passos.length);
   b.raiz.visible = b.rot.visible = visivel;
+  b.balao.visible = visivel && agora < b.balaoAte;
   if (!visivel) return;
 
   b.digitando = st === 'trabalhando';
@@ -958,6 +1087,8 @@ controls.addEventListener('start', () => { vistaAlvo = null; });
 function loop() {
   const dt = Math.min(relogio.getDelta(), .05), t = relogio.elapsedTime, agora = performance.now();
   if (t - ultimaTela > .12) { checarExpediente(); desenharTelas(t); ultimaTela = t; }
+  agendarLazer(agora);
+  conduzirConversas(agora);
   equipe.forEach(a => { const b = bonecos.get(a.id); if (b) atualizarBoneco(a, b, t, dt, agora); });
   const nivel = expedienteAtual === false ? .4 : 1;
   hemi.intensity += (1.7 * nivel - hemi.intensity) * .03;
