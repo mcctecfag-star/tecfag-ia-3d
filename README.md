@@ -13,7 +13,7 @@ Sala 3D onde a equipe de agentes de IA da Tecfag aparece trabalhando.
 - `ponte.js` (abra com `iniciar-ponte.bat` e deixe a janela aberta):
   - publica a sala no Firebase a cada mudança;
   - recebe os pedidos feitos pela caixa "Pedir tarefa" do site e roda o Claude Code de terminal. Respostas completas ficam em `resultados/`.
-- Só a conta `mcctecfag@gmail.com` pode mandar e ver pedidos (`regras-firebase.json`; aplique com `node ponte.js regras`).
+- Só as contas `mcctecfag@gmail.com` e `tecfagfinanceiro3@gmail.com` podem mandar e ver pedidos (`regras-firebase.json`; aplique com `node ponte.js regras`).
 - Pedidos da aba só podem ler, pesquisar e escrever em `resultados/` (lista `FERRAMENTAS_LIBERADAS` em `ponte.js`).
 - Status: `trabalhando`, `esperando`, `reuniao`, `livre` ou `concluido`.
 - Expediente de segunda a sexta, 08:00 às 18:00, com ponto na entrada.
