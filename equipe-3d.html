@@ -683,9 +683,12 @@ function posFinal(a, lugar) {
   }
 }
 
+// O ✓ de concluído fica alguns minutos; depois o agente volta a ficar livre (levanta, vai ao café...).
+const CONCLUIDO_MS = 3 * 60 * 1000;
 function statusVisto(a) {
-  if (!DEMO) return a.status;
-  return ['trabalhando', 'reuniao', 'reuniao', 'livre', 'concluido', 'trabalhando', 'reuniao', 'esperando'][a.mesa] || a.status;
+  if (DEMO) return ['trabalhando', 'reuniao', 'reuniao', 'livre', 'concluido', 'trabalhando', 'reuniao', 'esperando'][a.mesa] || a.status;
+  if (a.status === 'concluido' && Date.now() - new Date(a.atualizadoEm || 0).getTime() > CONCLUIDO_MS) return 'livre';
+  return a.status;
 }
 function lugarDesejado(a, b, agora) {
   const exp = expedienteAtual ?? noExpediente(agoraReal());
@@ -760,6 +763,17 @@ function pose(b, sentado, t, andando) {
 }
 
 let expedienteAtual = null;
+// Reavalia os status que expiram (concluído -> livre): cores dos rótulos, anéis e fichas.
+setInterval(() => {
+  equipe.forEach(a => {
+    const b = bonecos.get(a.id); if (!b) return;
+    const st = statusVisto(a);
+    b.div.style.color = hex6(COR_STATUS[st]);
+    b.anel.material.color.setHex(COR_STATUS[st]);
+  });
+  if (dadosAtuais) { ultimoJson = ''; renderPainel(dadosAtuais); }
+}, 20000);
+
 function checarExpediente() {
   const dentro = noExpediente(agoraReal());
   if (dentro === expedienteAtual) return;
