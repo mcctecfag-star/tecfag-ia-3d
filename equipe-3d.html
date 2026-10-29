@@ -650,7 +650,7 @@ function criarBoneco(a) {
   scene.add(raiz);
   return { raiz, corpo, bracoE, bracoD, pernaE, pernaD, holo, anel, alerta, ok, div, nm, rot, copo, pacote, balao, balaoTxt, balaoAte: 0,
     lugar: null, destino: null, passos: [], pausaAte: 0, liberado: 0, chegada: 0, saida: 0,
-    livreAlvo: 'cadeira', livreAte: 0, descansoAte: performance.now() + 4000 + h % 20000, item: null,
+    livreAlvo: 'pe', livreAte: 0, descansoAte: performance.now() + 4000 + h % 20000, item: null,
     sofa: null, passeio: null, conversa: null, conversaAnterior: null };
 }
 
@@ -721,13 +721,14 @@ function lugarDesejado(a, b, agora) {
   if (!exp && agora >= b.saida) return 'fora';
   if (exp && b.lugar === 'fora' && agora < b.chegada) return 'fora';
   const st = statusVisto(a);
-  if (st !== 'livre' && b.livreAlvo !== 'cadeira' && b.livreAlvo !== 'conversa') b.livreAlvo = 'cadeira';
-  if (st === 'trabalhando' || st === 'concluido') return 'cadeira';
+  if (st !== 'livre' && b.livreAlvo !== 'pe' && b.livreAlvo !== 'conversa') b.livreAlvo = 'pe';
+  if (st === 'trabalhando') return 'cadeira';   // só senta quem está trabalhando
+  if (st === 'concluido') return 'pe';
   if (st === 'esperando') return 'pe';
   if (st === 'reuniao') return 'reuniao';
   // livre: fica no computador e, de vez em quando, o "agendador de lazer" manda dar uma volta
-  if (reduz) return 'cadeira';
-  if (b.livreAlvo !== 'cadeira' && b.livreAlvo !== 'conversa' && b.lugar === b.livreAlvo && b.livreAte && agora > b.livreAte) voltarAoPc(b, agora);
+  if (reduz) return 'pe';
+  if (b.livreAlvo !== 'pe' && b.livreAlvo !== 'conversa' && b.lugar === b.livreAlvo && b.livreAte && agora > b.livreAte) voltarAoPc(b, agora);
   return b.livreAlvo;
 }
 
@@ -745,7 +746,7 @@ const PASSEIOS = [
 const RODAS = [[V(-4.6, 0, 4.4), V(-3.8, 0, 4.4)], [V(1.4, 0, 4.4), V(2.2, 0, 4.4)], [V(5.6, 0, 4.4), V(6.4, 0, 4.4)]];
 
 function voltarAoPc(b, agora) {
-  b.livreAlvo = 'cadeira'; b.livreAte = 0;
+  b.livreAlvo = 'pe'; b.livreAte = 0;
   b.descansoAte = agora + 15000 + Math.random() * 25000;
 }
 
@@ -760,7 +761,7 @@ function agendarLazer(agora) {
     .filter(({ a, b }) => b && statusVisto(a) === 'livre' && b.lugar !== 'fora');
   const andando = livres.filter(({ b }) => b.passos.length || b.livreAlvo !== b.lugar).length;
   if (andando >= 2) return;
-  const parados = livres.filter(({ b }) => b.lugar === 'cadeira' && b.livreAlvo === 'cadeira' && !b.passos.length && agora > (b.descansoAte || 0));
+  const parados = livres.filter(({ b }) => b.lugar === 'pe' && b.livreAlvo === 'pe' && !b.passos.length && agora > (b.descansoAte || 0));
   if (!parados.length) return;
   const sorteio = Math.random();
 
@@ -781,7 +782,7 @@ function agendarLazer(agora) {
   const { b } = parados[Math.floor(Math.random() * parados.length)];
   if (sorteio < .55) { b.livreAlvo = 'cafe'; b.livreAte = agora + 6000 + Math.random() * 4000; }
   else if (sorteio < .7) { b.livreAlvo = 'snack'; b.livreAte = agora + 5000 + Math.random() * 3000; }
-  else if (sorteio < .85) {
+  else if (sorteio < 0) {   // sofá desligado: livre não senta
     const usados = new Set(livres.filter(x => x.b.livreAlvo === 'sofa').map(x => x.b.sofa.x));
     const assento = SOFA.find(x => !usados.has(x));
     if (assento === undefined) return;
@@ -856,7 +857,7 @@ function aplicar(dados) {
     if (b && mudouVisual) { const l = b.lugar; b.raiz.removeFromParent(); b.rot.element.remove(); b.balao.element.remove(); bonecos.delete(a.id); b = null; a._lugar = l; }
     if (!b) {
       b = criarBoneco(a); bonecos.set(a.id, b);
-      const inicial = a._lugar || (noExpediente(agoraReal()) ? lugarDesejado(a, { ...b, lugar: 'cadeira', livreAlvo: 'cadeira' }, agora) : 'fora');
+      const inicial = a._lugar || (noExpediente(agoraReal()) ? lugarDesejado(a, { ...b, lugar: 'pe', livreAlvo: 'pe' }, agora) : 'fora');
       colocar(a, b, inicial);
     }
     b.nm.textContent = a.nome;
@@ -969,7 +970,14 @@ function atualizarBoneco(a, b, t, dt, agora) {
 
   const f = posFinal(a, b.lugar);
   b.raiz.position.copy(f.p);
-  if (b.lugar === 'pe') b.raiz.rotation.y = Math.atan2(camera.position.x - f.p.x, camera.position.z - f.p.z) * (st === 'esperando' ? 1 : .3);
+  if (b.lugar === 'pe') {
+    if (st === 'esperando') b.raiz.rotation.y = Math.atan2(camera.position.x - f.p.x, camera.position.z - f.p.z);
+    else {
+      // em pé ao lado do computador, olhando a tela, com um balanço leve
+      const [mx, mz] = MESAS[a.mesa];
+      b.raiz.rotation.y = Math.atan2(mx - f.p.x, mz - .27 - f.p.z) + (reduz ? 0 : Math.sin(t * .4 + a.mesa) * .35);
+    }
+  }
   pose(b, f.sentado, t, false);
   b.holo.visible = st !== 'livre';
   b.alerta.visible = st === 'esperando';
