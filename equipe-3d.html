@@ -72,6 +72,42 @@ h3 { font: 600 13px var(--display); letter-spacing: .12em; text-transform: upper
 .mural { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .mural li { font-size: 13px; border-left: 2px solid var(--cyan); padding-left: 8px; display: grid; }
 .mural .quem { font-weight: 700; }
+.nome .funcao { font: 600 11.5px var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--cyan); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tags span { font-size: 11px; color: var(--muted); background: rgba(84,214,255,.07); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; }
+
+.chat {
+  position: fixed; left: 16px; bottom: 16px; z-index: 6; width: min(420px, calc(100vw - 32px)); height: 50vh; min-height: 300px;
+  background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+}
+.chat-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.chat-cab strong { font: 600 14px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.chat-acoes { display: flex; gap: 6px; }
+.chat button { font: 600 13px var(--display); color: #06131c; background: var(--cyan); border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.chat button.sec { background: none; color: var(--fg); border: 1px solid var(--line); }
+.chat button:disabled { opacity: .5; cursor: default; }
+.chat button:focus-visible, .chat-abrir:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.chat-lista { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 85%; padding: 8px 11px; border-radius: 12px; font-size: 13.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.eu { align-self: flex-end; background: rgba(84,214,255,.16); border: 1px solid var(--line); border-bottom-right-radius: 4px; }
+.msg.equipe { align-self: flex-start; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg.equipe.executando { border-color: var(--work); } .msg.equipe.erro { border-color: var(--wait); }
+.msg .quando { display: block; margin-top: 3px; }
+.msg .longo { max-height: 260px; overflow-y: auto; display: block; }
+.chat-aviso { padding: 0 12px 8px; }
+.chat-aviso:empty { display: none; }
+.chat-rodape { border-top: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 6px; }
+.chat-rodape .linha { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.chat textarea { width: 100%; min-height: 54px; max-height: 120px; resize: vertical; background: rgba(255,255,255,.04); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; font-size: 13.5px; }
+.chat textarea:focus-visible { outline: 2px solid var(--cyan); }
+.chat .info { color: var(--muted); font-size: 12px; }
+.chat-abrir {
+  position: fixed; left: 16px; bottom: 16px; z-index: 6; font: 600 14px var(--display); letter-spacing: .04em;
+  color: #06131c; background: var(--cyan); border: 0; border-radius: 999px; padding: 10px 18px; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+body.com-chat .dica { display: none; }
+@media (max-width: 760px) { .chat { left: 12px; right: 12px; width: auto; bottom: 12px; height: 55vh; } .chat-abrir { left: 12px; bottom: 12px; } }
 .pedir { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
 .pedir textarea { width: 100%; min-height: 70px; resize: vertical; background: rgba(255,255,255,.04); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; font-size: 13.5px; }
 .pedir textarea:focus-visible { outline: 2px solid var(--cyan); }
@@ -138,20 +174,29 @@ h3 { font: 600 13px var(--display); letter-spacing: .12em; text-transform: upper
     <button id="btnPainel" type="button" aria-expanded="true">Recolher</button>
   </div>
   <div class="rolagem">
-    <section class="pedir" id="pedir" hidden>
-      <div class="linha"><strong>Pedir tarefa</strong><button type="button" class="sec" id="btnLogin">Entrar com Google</button></div>
-      <div id="formPedido" hidden>
-        <textarea id="textoPedido" maxlength="2000" placeholder="Ex.: Copy, faz 3 ganchos para o anúncio da seladora"></textarea>
-        <div class="linha"><span class="info" id="infoPedido">Comece com o nome do agente.</span><button type="button" id="btnEnviar">Enviar</button></div>
-        <ol class="pedidos" id="listaPedidos"></ol>
-      </div>
-      <span class="info" id="avisoPedido"></span>
-    </section>
     <div id="fichas" style="display:grid;gap:10px"></div>
     <h3>Mural</h3>
     <ol class="mural" id="mural"></ol>
   </div>
 </aside>
+
+<!-- chat de pedidos: separado da equipe, ocupa metade da altura e pode ser escondido -->
+<section class="chat" id="pedir" hidden aria-label="Pedir tarefa">
+  <div class="chat-cab">
+    <strong>Pedir tarefa</strong>
+    <div class="chat-acoes">
+      <button type="button" class="sec" id="btnLogin">Entrar com Google</button>
+      <button type="button" class="sec" id="btnEsconderChat" aria-label="Esconder o chat">Esconder</button>
+    </div>
+  </div>
+  <ol class="chat-lista" id="listaPedidos"></ol>
+  <span class="info chat-aviso" id="avisoPedido"></span>
+  <div class="chat-rodape" id="formPedido" hidden>
+    <textarea id="textoPedido" maxlength="2000" placeholder="Ex.: Bia, faz 3 ganchos para o anúncio da seladora"></textarea>
+    <div class="linha"><span class="info" id="infoPedido">Comece com o nome ou a função de quem vai fazer.</span><button type="button" id="btnEnviar">Enviar</button></div>
+  </div>
+</section>
+<button type="button" class="chat-abrir" id="btnAbrirChat" hidden>Pedir tarefa</button>
 
 <div class="dica">Arraste para girar · role para aproximar · clique num boneco para focar</div>
 
@@ -860,7 +905,7 @@ function aplicar(dados) {
       const inicial = a._lugar || (noExpediente(agoraReal()) ? lugarDesejado(a, { ...b, lugar: 'pe', livreAlvo: 'pe' }, agora) : 'fora');
       colocar(a, b, inicial);
     }
-    b.nm.textContent = a.nome;
+    b.nm.textContent = a.funcao ? a.nome + ' · ' + a.funcao : a.nome;
     const st = statusVisto(a);
     b.div.style.color = hex6(COR_STATUS[st]);
     b.anel.material.color.setHex(COR_STATUS[st]);
@@ -1194,14 +1239,17 @@ function renderPainel(dados) {
     const bol = document.createElement('span'); bol.className = 'bolinha'; bol.style.background = bol.style.color = corValida(a.cor);
     const tx = document.createElement('div');
     const n = document.createElement('div'); n.className = 'nome'; n.textContent = a.nome;
+    if (a.funcao) { const fn = document.createElement('span'); fn.className = 'funcao'; fn.textContent = a.funcao; n.append(' ', fn); }
     const c = document.createElement('div'); c.className = 'cargo'; c.textContent = a.cargo || '';
+    const tg = document.createElement('div'); tg.className = 'tags';
+    (Array.isArray(a.habilidades) ? a.habilidades : []).forEach(hb => { const s = document.createElement('span'); s.textContent = hb; tg.appendChild(s); });
     tx.append(n, c); topo.append(bol, tx);
     const p = document.createElement('span'); p.className = 'pill s-' + (fora ? 'livre' : st); p.textContent = fora ? 'Fora do expediente' : STATUS[st];
     const ta = document.createElement('div'); ta.className = 'tarefa'; ta.textContent = a.tarefa || 'Sem tarefa no momento';
     const pt = document.createElement('div'); pt.className = 'quando';
     pt.textContent = 'Ponto hoje: entrada ' + (ponto.entrada || '—') + ' · saída ' + (ponto.saida || '—');
     const q = document.createElement('div'); q.className = 'quando'; q.textContent = a.atualizadoEm ? 'Atualizado ' + relativo(a.atualizadoEm) : '';
-    f.append(topo, p, ta, pt, q);
+    f.append(topo, tg, p, ta, pt, q);
     f.addEventListener('click', () => focar(a.id));
     fichas.appendChild(f);
   });
@@ -1253,7 +1301,21 @@ function iniciarFirebase() {
   const btnEnviar = document.getElementById('btnEnviar');
   const info = document.getElementById('infoPedido');
   const lista = document.getElementById('listaPedidos');
-  caixa.hidden = false;
+  // chat aberto ou escondido (lembrado neste navegador)
+  const btnAbrir = document.getElementById('btnAbrirChat');
+  const btnEsconder = document.getElementById('btnEsconderChat');
+  const mostrarChat = aberto => {
+    caixa.hidden = !aberto; btnAbrir.hidden = aberto;
+    document.body.classList.toggle('com-chat', aberto);
+    try { localStorage.setItem('chatAberto', aberto ? '1' : '0'); } catch { /* sem armazenamento */ }
+    if (aberto) lista.scrollTop = lista.scrollHeight;
+  };
+  let abertoAntes = true;
+  try { abertoAntes = localStorage.getItem('chatAberto') !== '0'; } catch { /* sem armazenamento */ }
+  mostrarChat(abertoAntes);
+  btnAbrir.addEventListener('click', () => mostrarChat(true));
+  btnEsconder.addEventListener('click', () => mostrarChat(false));
+  txt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); btnEnviar.click(); } });
   let desligar = null;
   const auth = firebase.auth();
   btnLogin.addEventListener('click', () => {
@@ -1267,23 +1329,24 @@ function iniciarFirebase() {
     btnLogin.textContent = u ? 'Sair' : 'Entrar com Google';
     form.hidden = !dona;
     aviso.textContent = !u ? 'Entre com a conta da Tecfag para mandar pedidos.' : dona ? 'Conectada como ' + email : 'A conta ' + (email || 'sem e-mail') + ' não pode mandar pedidos. Clique em Sair e entre com uma das contas liberadas.';
-    if (!dona) return;
-    const q = db.ref('pedidos').orderByChild('criadoEm').limitToLast(8);
+    if (!dona) { lista.replaceChildren(); return; }
+    const q = db.ref('pedidos').orderByChild('criadoEm').limitToLast(15);
     const cb = q.on('value', snap => {
       const itens = []; snap.forEach(c => { itens.push({ id: c.key, ...c.val() }); });
       lista.replaceChildren();
-      itens.reverse().forEach(p => {
-        const li = document.createElement('li'); li.className = p.status;
-        const t = document.createElement('span'); t.textContent = p.texto;
-        const s = document.createElement('span'); s.className = 'quando';
-        s.textContent = ({ novo: 'Na fila', executando: 'Em andamento', concluido: 'Concluído', erro: 'Deu erro' })[p.status] + ' · ' + relativo(p.criadoEm);
-        li.append(t, s);
-        if (p.resposta) {
-          const d = document.createElement('details'); const sm = document.createElement('summary'); sm.textContent = 'Ver resposta';
-          const pr = document.createElement('p'); pr.textContent = p.resposta; d.append(sm, pr); li.append(d);
-        }
-        lista.appendChild(li);
+      const msg = (classe, texto, quando, longo) => {
+        const li = document.createElement('li'); li.className = 'msg ' + classe;
+        const t = document.createElement('span'); t.textContent = texto; if (longo) t.className = 'longo';
+        const s = document.createElement('span'); s.className = 'quando'; s.textContent = quando;
+        li.append(t, s); lista.appendChild(li);
+      };
+      if (!itens.length) msg('equipe', 'Oi! Escreva o pedido começando com o nome ou a função de quem vai fazer. Ex.: "Téo, atualiza o dashboard".', '');
+      itens.forEach(p => {
+        msg('eu', p.texto, relativo(p.criadoEm));
+        if (p.status === 'concluido' || p.status === 'erro') msg('equipe ' + p.status, p.resposta || (p.status === 'erro' ? 'Deu erro.' : 'Concluído.'), (p.status === 'erro' ? 'Deu erro · ' : 'Concluído · ') + relativo(p.concluidoEm || p.criadoEm), true);
+        else msg('equipe ' + p.status, p.status === 'executando' ? 'Trabalhando nisso…' : 'Na fila. Começa assim que a ponte do computador da Tecfag pegar.', '');
       });
+      lista.scrollTop = lista.scrollHeight;
     }, e => { aviso.textContent = 'Sem acesso aos pedidos: ' + e.message; });
     desligar = () => q.off('value', cb);
   });
