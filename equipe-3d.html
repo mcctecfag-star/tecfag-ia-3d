@@ -61,7 +61,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 }
 .ficha:hover, .ficha.sel { border-color: var(--cyan); background: rgba(84,214,255,.06); }
 .ficha-topo { display: flex; gap: 10px; align-items: center; }
-.bolinha { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 10px currentColor; }
+.abas { display: flex; gap: 4px; }
+.painel-cab .aba { font: 600 13px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.painel-cab .aba.ativa { color: var(--fg); border-color: var(--line); background: rgba(84,214,255,.06); }
+.rosto { width: 34px; height: 34px; flex: none; display: block; }
+.rosto svg { display: block; }
 .nome { font-weight: 700; }
 .cargo { color: var(--muted); font-size: 12.5px; }
 .pill { justify-self: start; font: 12px var(--display); padding: 0 8px; border-radius: 999px; border: 1px solid currentColor; letter-spacing: .04em; }
@@ -171,13 +175,15 @@ body.chat-fechado .dica { left: 170px; }
 
 <aside class="painel" id="painel">
   <div class="painel-cab">
-    <h2>Equipe</h2>
+    <div class="abas" role="tablist">
+      <button type="button" role="tab" class="aba ativa" data-aba="fichas" aria-selected="true">Equipe</button>
+      <button type="button" role="tab" class="aba" data-aba="muralAba" aria-selected="false">Mural</button>
+    </div>
     <button id="btnPainel" type="button" aria-expanded="true">Recolher</button>
   </div>
   <div class="rolagem">
     <div id="fichas" style="display:grid;gap:10px"></div>
-    <h3>Mural</h3>
-    <ol class="mural" id="mural"></ol>
+    <div id="muralAba" hidden><ol class="mural" id="mural"></ol></div>
   </div>
 </aside>
 
@@ -857,9 +863,9 @@ const RESPOSTAS = ['Boa! Me manda depois?', 'Faz sentido', 'Bora testar!', 'Anot
 const MAQUINAS = ['Qual máquina tá saindo mais?', 'A seladora continua campeã de pedidos', 'Envasadora pra líquido e pastoso, né?', 'Dosadora semiautomática é ótima pra começar', 'A rotuladora chama atenção no vídeo'];
 const sortear = l => l[Math.floor(Math.random() * l.length)];
 
-function falar(b, texto, agora) {
+function falar(b, texto, agora, ms = 3400) {
   b.balaoTxt.textContent = texto;
-  b.balaoAte = agora + 3400;
+  b.balaoAte = agora + ms;
 }
 
 function conduzirConversas(agora) {
@@ -1031,6 +1037,17 @@ function atualizarBoneco(a, b, t, dt, agora) {
   b.anel.rotation.z = t * 1.5;
   b.holo.position.y = (f.sentado ? 1.72 : 2.0) + (reduz ? 0 : Math.sin(t * 2.4 + a.mesa) * .05);
   b.rot.position.y = f.sentado ? 2.05 : 2.32;
+  b.balao.position.y = f.sentado ? 2.45 : 2.75;
+  // balões de trabalho: comenta a ação e o que encontrou (fala só existe na sala do computador)
+  if (st === 'trabalhando' || st === 'reuniao' || st === 'concluido') {
+    const nova = a.falaEm && a.falaEm !== b.falaVista;
+    if (nova || (st !== 'concluido' && agora > (b.repeteFala || 0) && (a.fala || a.acao))) {
+      b.alterna = nova ? 0 : (b.alterna || 0) + 1;
+      const texto = (b.alterna % 2 === 0 ? (a.fala || a.acao) : (a.acao || a.fala)) || '';
+      if (texto) falar(b, texto, agora, 5500);
+      b.falaVista = a.falaEm; b.repeteFala = agora + 14000 + Math.random() * 6000;
+    }
+  }
 }
 
 let ultimaTela = 0;
@@ -1196,6 +1213,11 @@ renderer.domElement.addEventListener('pointerup', e => {
   const hit = ray.intersectObjects([...bonecos.values()].filter(b => b.raiz.visible).map(b => b.raiz), true)[0];
   if (hit) focar(hit.object.userData.agenteId);
 });
+// abas Equipe / Mural
+document.querySelectorAll('.aba').forEach(bt => bt.addEventListener('click', () => {
+  document.querySelectorAll('.aba').forEach(x => { const on = x === bt; x.classList.toggle('ativa', on); x.setAttribute('aria-selected', String(on)); document.getElementById(x.dataset.aba).hidden = !on; });
+  if (painel.classList.contains('fechado')) btn.click();
+}));
 const painel = document.getElementById('painel'), btn = document.getElementById('btnPainel');
 btn.addEventListener('click', () => {
   const fechado = painel.classList.toggle('fechado');
@@ -1223,6 +1245,35 @@ function pontoHoje() {
 }
 function hojeAs(h) { const d = agoraReal(); d.setHours(h, 0, 0, 0); return d.toISOString(); }
 
+// Rostinho simples de cada um para as fichas (mesma pele, cabelo, óculos e barba do boneco).
+function rostinho(a) {
+  const ap = a.aparencia || {};
+  const pele = corValida(ap.pele, '#e0b48c'), cab = corValida(ap.corCabelo, '#2a1d17'), fundo = corValida(a.cor);
+  const estilo = ap.cabelo || 'curto';
+  const tampa = '<path d="M9 22 C9 12 14 8.5 20 8.5 C26 8.5 31 12 31 22 C29 17 25 15 20 15 C15 15 11 17 9 22Z" fill="' + cab + '"/>';
+  let atras = '', frente = '';
+  switch (estilo) {
+    case 'careca': break;
+    case 'longo': atras = '<rect x="8.5" y="14" width="23" height="18" rx="9" fill="' + cab + '"/>'; frente = tampa; break;
+    case 'coque': frente = tampa + '<circle cx="20" cy="7.5" r="4" fill="' + cab + '"/>'; break;
+    case 'rabo': atras = '<ellipse cx="30" cy="23" rx="3" ry="6" fill="' + cab + '"/>'; frente = tampa; break;
+    case 'afro': atras = '<circle cx="20" cy="17" r="13.5" fill="' + cab + '"/>'; break;
+    case 'cacheado': frente = tampa + [12, 16, 20, 24, 28].map(x => '<circle cx="' + x + '" cy="11" r="3.2" fill="' + cab + '"/>').join(''); break;
+    case 'trancas': atras = '<rect x="9" y="16" width="3" height="16" rx="1.5" fill="' + cab + '"/><rect x="28" y="16" width="3" height="16" rx="1.5" fill="' + cab + '"/>'; frente = tampa; break;
+    default: frente = tampa;
+  }
+  const barba = ap.barba ? '<path d="M11.5 25 C12.5 32 27.5 32 28.5 25 C26 29 14 29 11.5 25Z" fill="' + cab + '"/>' : '';
+  const oculos = ap.oculos ? '<g fill="none" stroke="#15181d" stroke-width="1.2"><circle cx="16" cy="22" r="2.8"/><circle cx="24" cy="22" r="2.8"/><path d="M18.8 22h2.4"/></g>' : '';
+  const svg = '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true">' +
+    '<circle cx="20" cy="20" r="20" fill="' + fundo + '" opacity=".22"/>' + atras +
+    '<circle cx="20" cy="22" r="10.5" fill="' + pele + '"/>' + frente + barba +
+    '<circle cx="16" cy="22" r="1.2" fill="#1a1410"/><circle cx="24" cy="22" r="1.2" fill="#1a1410"/>' +
+    '<path d="M16.5 26.2 Q20 28.6 23.5 26.2" fill="none" stroke="#7a2a2a" stroke-width="1.2" stroke-linecap="round"/>' + oculos + '</svg>';
+  const s = document.createElement('span'); s.className = 'rosto'; s.innerHTML = svg;
+  s.title = (a.nome || '') + (a.funcao ? ' · ' + a.funcao : '');
+  return s;
+}
+
 let ultimoJson = '', dadosAtuais = null;
 function renderPainel(dados) {
   dadosAtuais = dados;
@@ -1237,7 +1288,7 @@ function renderPainel(dados) {
     const f = document.createElement('button'); f.type = 'button'; f.className = 'ficha'; f.dataset.id = a.id;
     if (a.id === selecionado) f.classList.add('sel');
     const topo = document.createElement('div'); topo.className = 'ficha-topo';
-    const bol = document.createElement('span'); bol.className = 'bolinha'; bol.style.background = bol.style.color = corValida(a.cor);
+    const bol = rostinho(a);
     const tx = document.createElement('div');
     const n = document.createElement('div'); n.className = 'nome'; n.textContent = a.nome;
     if (a.funcao) { const fn = document.createElement('span'); fn.className = 'funcao'; fn.textContent = a.funcao; n.append(' ', fn); }
@@ -1250,7 +1301,7 @@ function renderPainel(dados) {
     const pt = document.createElement('div'); pt.className = 'quando';
     pt.textContent = 'Ponto hoje: entrada ' + (ponto.entrada || '—') + ' · saída ' + (ponto.saida || '—');
     const q = document.createElement('div'); q.className = 'quando'; q.textContent = a.atualizadoEm ? 'Atualizado ' + relativo(a.atualizadoEm) : '';
-    f.append(topo, tg, p, ta, pt, q);
+    f.append(topo, tg, p);   // ficha enxuta: quem é, o que faz e o status
     f.addEventListener('click', () => focar(a.id));
     fichas.appendChild(f);
   });
