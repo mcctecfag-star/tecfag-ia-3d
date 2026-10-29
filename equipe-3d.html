@@ -42,6 +42,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 }
 .atalhos button:hover, .atalhos button.ativo { border-color: var(--cyan); color: var(--cyan); }
 .atalhos button:focus-visible, .painel-cab button:focus-visible, .ficha:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.frase-dia { font: 600 13.5px var(--body); color: #ffd3dc; background: rgba(58, 18, 30, .78); border: 1px solid rgba(255,92,122,.45); border-radius: 6px; padding: 5px 10px; max-width: 420px; }
+.frase-dia:empty { display: none; }
+.frase-dia::before { content: "Frase do dia: "; color: #ff5c7a; font-family: var(--display); letter-spacing: .04em; }
 .demo { font-size: 12.5px; color: #f3dca0; background: rgba(58, 50, 32, .85); border: 1px solid #6b5a2c; border-radius: 6px; padding: 4px 10px; justify-self: start; }
 
 .painel {
@@ -169,7 +172,9 @@ body.chat-fechado .dica { left: 170px; }
     <button type="button" data-vista="ponto">Ponto</button>
     <button type="button" data-vista="reuniao">Sala de reunião</button>
     <button type="button" data-vista="copa">Copa</button>
+    <button type="button" data-vista="quadro">Quadro</button>
   </div>
+  <div class="frase-dia" id="fraseDia" title="Frase do dia"></div>
   <div class="demo" id="demo" hidden>Modo demonstração: status inventados só para mostrar a sala</div>
 </div>
 
@@ -231,7 +236,8 @@ MESAS.push([-9, 1.5]);   // mesa 8, perto da entrada (Rotina)
 const CORR_Z = -0.6, FRENTE_Z = 4.6, CORR_X = 5.2;
 const PORTA = V(-11.6, 0, 5.6);
 const PONTO = V(-9.6, 0, 4.75);      // onde a pessoa para; o totem fica em z 4.0
-const CAFE_PE = V(7.6, 0, 1.9), SNACK_PE = V(10.4, 0, 1.9);
+const CAFE_PE = V(-7.7, 0, -5.75), SNACK_PE = V(-11.2, 0, -5.6), PIPOCA_PE = V(-9.45, 0, -5.75);   // de frente para a bancada da copa (fundo à esquerda)
+const FUNDO_Z = -5.0;   // corredor do fundo, entre as mesas e a copa
 const ASSENTOS = [7.8, 8.6, 9.4, 10.2].map(x => ({ p: V(x, 0, -3.05), rot: Math.PI, frente: true }))
   .concat([7.8, 8.6, 9.4, 10.2].map(x => ({ p: V(x, 0, -5.55), rot: 0, frente: false })))
   .concat([{ p: V(7.0, 0, -4.3), rot: Math.PI / 2, cabeceira: true }]);   // cabeceira, para a 9ª pessoa
@@ -386,8 +392,8 @@ function planta(x, z, s = 1, vaso = 0xdfe6e3, y = 0) {
   scene.add(g); return g;
 }
 const plantas = [
-  planta(-11.3, -6.4, 1.4, 0x22303a), planta(-11.3, 7.4, 1.3), planta(4.9, -6.4, 1.2),
-  planta(-8.5, -6.5, 1.0, 0x22303a), planta(11.4, 7.4, 1.4, 0x22303a), planta(6.6, 7.4, 1.0),
+  planta(-11.3, 7.4, 1.3), planta(5.75, -6.4, 1.0),
+  planta(-5.6, -6.5, 1.0, 0x22303a), planta(6.6, 7.4, 1.0),
   planta(11.2, -6.5, 1.0), planta(-8.6, 3.8, .9, 0x22303a)
 ];
 
@@ -479,13 +485,13 @@ const avisoReuniaoM = new THREE.Mesh(new THREE.PlaneGeometry(1.4, .26), new THRE
 avisoReuniaoM.position.set(9.6, 2.35, -1.47); scene.add(avisoReuniaoM);
 rotuloLocal('SALA DE REUNIÃO', 9, 3.2, -1.5);
 
-// ---------- copa: café e snacks ----------
-{
-  box(2.2, .86, .7, mat(0x6b4a2f, { roughness: .7 }), 7.6, .43, .9);
-  box(2.3, .05, .78, mat(0xe8ecef, { roughness: .25 }), 7.6, .885, .9);
-  box(2.2, .03, .03, neon(0xffb36b), 7.6, .84, 1.27);
-}
-const cafe = new THREE.Group(); cafe.position.set(7.3, .91, .85); scene.add(cafe);
+// ---------- copa: café, pipoca e snacks (canto do fundo, à esquerda, de frente para a sala) ----------
+const copa = new THREE.Group(); copa.position.set(-8.6, 0, -6.6); scene.add(copa);   // fundo à esquerda, de frente para a sala
+box(3.2, .86, .7, mat(0x6b4a2f, { roughness: .7 }), 0, .43, 0, copa);
+box(3.3, .05, .78, mat(0xe8ecef, { roughness: .25 }), 0, .885, 0, copa);
+box(3.2, .03, .03, neon(0xffb36b), 0, .84, .37, copa);
+box(3.2, .9, .05, mat(0x2a3f4f), 0, 1.95, -.38, copa);
+const cafe = new THREE.Group(); cafe.position.set(.9, .91, -.05); copa.add(cafe);
 const inox = mat(0xc4ccd2, { metalness: .9, roughness: .25 });
 const preto = mat(0x15191e, { metalness: .4, roughness: .5 });
 box(.8, .5, .5, inox, 0, .25, 0, cafe);
@@ -503,22 +509,34 @@ function xicara(x, y, z, pai) {
 }
 xicara(0, .065, .32, cafe);
 [-.25, -.12, .12, .25].forEach(x => xicara(x, .6, 0, cafe));
-const moedor = new THREE.Group(); moedor.position.set(8.3, .91, .85); scene.add(moedor);
+const moedor = new THREE.Group(); moedor.position.set(.2, .91, -.05); copa.add(moedor);
 box(.22, .32, .26, preto, 0, .16, 0, moedor);
-const funil = cil(.13, .06, .26, new THREE.MeshStandardMaterial({ color: 0x6b3d1f, transparent: true, opacity: .75, roughness: .2 }), 0, .45, 0, moedor, 16);
+cil(.13, .06, .26, new THREE.MeshStandardMaterial({ color: 0x6b3d1f, transparent: true, opacity: .75, roughness: .2 }), 0, .45, 0, moedor, 16);
 const fumaca = [];
 for (let i = 0; i < 6; i++) {
   const f = new THREE.Mesh(new THREE.SphereGeometry(.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .4 }));
   f.userData.fase = i / 6; cafe.add(f); fumaca.push(f);
 }
+// pipoqueira (carrinho vermelho com vitrine e pipoca)
+const pipoqueira = new THREE.Group(); pipoqueira.position.set(-.85, .91, -.02); copa.add(pipoqueira);
+box(.55, .12, .45, mat(0xc0392b, { roughness: .45 }), 0, .06, 0, pipoqueira);
+box(.55, .5, .45, new THREE.MeshStandardMaterial({ color: 0xfff6d5, transparent: true, opacity: .25, roughness: .05 }), 0, .37, 0, pipoqueira).castShadow = false;
+box(.6, .08, .5, mat(0xc0392b, { roughness: .45 }), 0, .66, 0, pipoqueira);
+const pipocas = [];
+for (let i = 0; i < 40; i++) {
+  const p = new THREE.Mesh(new THREE.IcosahedronGeometry(.025, 0), mat(i % 7 ? 0xfff1b8 : 0xf4c95d, { flatShading: true }));
+  p.position.set((Math.random() - .5) * .45, .14 + Math.random() * .14, (Math.random() - .5) * .35); pipoqueira.add(p); pipocas.push(p);
+}
+const pp = placaTexto('PIPOCA', '#ffd166', 256, 80, 50);
+const ppm = new THREE.Mesh(new THREE.PlaneGeometry(.55, .17), new THREE.MeshBasicMaterial({ map: pp.t, transparent: true }));
+ppm.position.set(0, .82, .23); pipoqueira.add(ppm);
 const placaCafe = placaTexto('CAFÉ', '#ffb36b', 256, 96, 64);
 const placaCafeM = new THREE.Mesh(new THREE.PlaneGeometry(1, .38), new THREE.MeshBasicMaterial({ map: placaCafe.t, transparent: true }));
-placaCafeM.position.set(7.6, 2.0, .52); scene.add(placaCafeM);
-box(2.2, .9, .05, mat(0x2a3f4f), 7.6, 1.95, .5);
+placaCafeM.position.set(.6, 2.0, -.35); copa.add(placaCafeM);
 
-// máquina de snacks
+// máquina de snacks (na ponta da bancada, encostada no canto)
 {
-  const s = new THREE.Group(); s.position.set(10.4, 0, .9); scene.add(s);
+  const s = new THREE.Group(); s.position.set(-11.2, 0, -6.55); scene.add(s);
   box(.95, 1.95, .8, mat(0x7a1f2b, { roughness: .4, metalness: .3 }), 0, .975, 0, s);
   box(.62, 1.35, .02, new THREE.MeshStandardMaterial({ color: 0x0b1118, roughness: .1, metalness: .2 }), -.12, 1.15, .41, s);
   const cores = [0xffd166, 0xef476f, 0x06d6a0, 0x118ab2, 0xff9f1c, 0xb18cff, 0xf4f1de];
@@ -535,14 +553,96 @@ box(2.2, .9, .05, mat(0x2a3f4f), 7.6, 1.95, .5);
   const pm = new THREE.Mesh(new THREE.PlaneGeometry(.8, .25), new THREE.MeshBasicMaterial({ map: ps.t, transparent: true }));
   pm.position.set(0, 2.15, .41); s.add(pm);
 }
-// sofá, mesinha e tapete
-box(3.4, .02, 2.2, mat(0x2c4a52, { roughness: .9 }), 9, .011, 5.4).castShadow = false;
-box(2.6, .42, .9, mat(0x34506a), 9, .31, 6.5);
-box(2.6, .6, .22, mat(0x34506a), 9, .72, 6.9);
-box(.25, .55, .9, mat(0x2b4359), 7.6, .4, 6.5); box(.25, .55, .9, mat(0x2b4359), 10.4, .4, 6.5);
-box(.55, .22, .45, mat(0xe3b448), 8.3, .62, 6.45); box(.55, .22, .45, mat(0xff7eb6), 9.7, .62, 6.45);
-cil(.45, .45, .04, mat(0xeef2f4, { roughness: .2 }), 9, .45, 5.1); cil(.05, .12, .43, mat(0x1a2430, { metalness: .6 }), 9, .22, 5.1);
-rotuloLocal('COPA', 9, 3.0, 2.2);
+// área de descanso no canto da frente à direita: dois sofás frente a frente, duas poltronas e mesinha
+{
+  const tecido = mat(0x34506a), braco = mat(0x2b4359), almofadas = [0xe3b448, 0xff7eb6, 0x54d6ff, 0x5fe08f];
+  box(4.2, .02, 3.8, mat(0x2c4a52, { roughness: .9 }), 9, .011, 5.05).castShadow = false;
+  // sofá do fundo, virado para a frente
+  box(2.6, .42, .9, tecido, 9, .31, 3.45); box(2.6, .6, .22, tecido, 9, .72, 3.0);
+  box(.25, .55, .9, braco, 7.6, .4, 3.45); box(.25, .55, .9, braco, 10.4, .4, 3.45);
+  box(.55, .22, .45, mat(almofadas[0]), 8.3, .62, 3.2); box(.55, .22, .45, mat(almofadas[1]), 9.7, .62, 3.2);
+  // sofá da frente, virado para o fundo
+  box(2.6, .42, .9, tecido, 9, .31, 6.65); box(2.6, .6, .22, tecido, 9, .72, 7.1);
+  box(.25, .55, .9, braco, 7.6, .4, 6.65); box(.25, .55, .9, braco, 10.4, .4, 6.65);
+  box(.55, .22, .45, mat(almofadas[2]), 8.3, .62, 6.9); box(.55, .22, .45, mat(almofadas[3]), 9.7, .62, 6.9);
+  // poltronas nas laterais
+  box(.9, .42, .9, tecido, 6.95, .31, 5.05); box(.22, .6, .9, tecido, 6.5, .72, 5.05);
+  box(.9, .42, .9, tecido, 11.05, .31, 5.05); box(.22, .6, .9, tecido, 11.5, .72, 5.05);
+  // mesinha de centro
+  cil(.55, .55, .04, mat(0xeef2f4, { roughness: .2 }), 9, .45, 5.05); cil(.05, .12, .43, mat(0x1a2430, { metalness: .6 }), 9, .22, 5.05);
+  planta(11.4, 7.4, 1.1, 0x22303a);
+}rotuloLocal('COPA', -9.2, 3.0, -5.9);
+rotuloLocal('DESCANSO', 9, 2.4, 5.05);
+
+// ---------- quadro da frase do dia (parede do fundo, de frente para a sala) ----------
+// "Frases desmotivacionais": uma por dia, na ordem da lista, sempre a mesma para o mesmo dia.
+const FRASES = [
+  'A derrota de hoje será menor que a de amanhã.',
+  'O fracasso não é o fim. É só o começo de vários outros.',
+  'Seus sonhos podem virar realidade. Seus pesadelos também, e mais rápido.',
+  'Trabalhe em silêncio. Ninguém vai notar mesmo.',
+  'Amanhã é um novo dia para dar errado de novo.',
+  'Tudo vai dar certo. Só não para você.',
+  'Nunca desista. Deixe que a vida desista por você.',
+  'Siga seus sonhos. Eles estão fugindo de você.',
+  'A luz no fim do túnel é o trem.',
+  'Grandes conquistas exigem tempo. Que você não tem.',
+  'Você é capaz de tudo. Principalmente de errar.',
+  'Se a meta ficou longe, relaxa: no mês que vem ela fica mais.',
+  'Toda nuvem tem um lado bom. Mas chove dos dois.',
+  'O esforço de hoje é o cansaço de amanhã.',
+  'Cada "não" te deixa mais perto do próximo "não".',
+  'Hoje pode ser o pior dia da sua vida. Até amanhã.',
+  'Coragem: o pior ainda nem começou.',
+  'Errar é humano. Persistir no erro é a nossa especialidade.',
+  'Quem espera sempre alcança. O prazo vencido.',
+  'Você não falhou. Só achou mil jeitos novos de falhar.',
+  'Comemore as pequenas vitórias. As grandes não vêm.',
+  'Se nada der certo, sempre haverá outra segunda-feira.',
+  'O caminho do sucesso está em obras. Sem previsão de entrega.',
+  'Desistir é para os fracos. Por isso você ainda está aqui.',
+  'O fundo do poço tem porão.',
+  'Não deixe para amanhã o fracasso que você pode ter hoje.',
+  'Quem ri por último é porque não entendeu a meta.',
+  'O copo não está meio cheio. Está rachado.',
+  'Respira fundo. Não resolve, mas respira.',
+  'O otimista ainda não viu os números.'
+];
+const quadro = textura(1280, 720);
+const quadroM = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.91), new THREE.MeshBasicMaterial({ map: quadro.t, color: 0x9a9a9a, toneMapped: false }));   // cor abaixo do brilho (bloom) para o texto não embaçar
+quadroM.position.set(3.85, 2.2, -6.94); scene.add(quadroM);   // parede do fundo, entre o telão e a sala de reunião
+box(3.6, 2.1, .06, mat(0x3a2a1c, { roughness: .7 }), 3.85, 2.2, -6.99);
+box(3.6, .04, .04, neon(0xff5c7a), 3.85, 3.27, -6.93);
+let fraseDiaDesenhada = '';
+function desenharQuadro(d) {
+  const dia = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+  const frase = FRASES[dia % FRASES.length];
+  const el = document.getElementById('fraseDia'); if (el && el.textContent !== frase) el.textContent = frase;
+  const chave = d.toDateString();
+  if (chave === fraseDiaDesenhada) return;
+  fraseDiaDesenhada = chave;
+  const { c, g, t } = quadro;
+  g.fillStyle = '#16202a'; g.fillRect(0, 0, c.width, c.height);
+  g.strokeStyle = 'rgba(255,92,122,.5)'; g.lineWidth = 6; g.strokeRect(24, 24, c.width - 48, c.height - 48);
+  g.fillStyle = '#ff5c7a'; g.font = '700 46px Chakra Petch, sans-serif'; g.textAlign = 'left';
+  g.fillText('FRASE DO DIA', 80, 120);
+  g.fillStyle = '#8aa6b2'; g.font = '600 34px Chakra Petch, sans-serif'; g.textAlign = 'right';
+  g.fillText(d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }), c.width - 80, 120);
+  // quebra a frase em linhas grandes
+  g.fillStyle = '#f4f8fa'; g.textAlign = 'center';
+  let tam = 92; let linhas;
+  do {
+    g.font = '700 ' + tam + 'px Manrope, sans-serif';
+    linhas = []; let atual = '';
+    frase.split(' ').forEach(p => { const tst = atual ? atual + ' ' + p : p; if (g.measureText(tst).width > c.width - 200 && atual) { linhas.push(atual); atual = p; } else atual = tst; });
+    linhas.push(atual); tam -= 6;
+  } while (linhas.length * (tam + 20) > 420 && tam > 40);
+  const alt = tam + 26, y0 = 380 - (linhas.length - 1) * alt / 2;
+  linhas.forEach((l, i) => g.fillText(l, c.width / 2, y0 + i * alt));
+  g.fillStyle = '#5b7380'; g.font = '600 28px Chakra Petch, sans-serif';
+  g.fillText('— Gestão de Expectativas Tecfag', c.width / 2, c.height - 70);
+  t.needsUpdate = true;
+}
 
 // partículas
 const pg = new THREE.BufferGeometry();
@@ -680,7 +780,10 @@ function criarBoneco(a) {
   // itens na mão
   const copo = add(new THREE.CylinderGeometry(.045, .035, .1, 12), mat(0xffffff), 0, -.56, .06, bracoD);
   const pacote = add(new THREE.BoxGeometry(.1, .14, .04), mat(0xef476f), 0, -.58, .06, bracoD);
-  copo.visible = pacote.visible = false;
+  const pipocaCopo = add(new THREE.CylinderGeometry(.055, .04, .12, 12), mat(0xffffff), 0, -.57, .06, bracoD);
+  add(new THREE.CylinderGeometry(.056, .056, .02, 12), mat(0xc0392b), 0, .055, 0, pipocaCopo);
+  add(new THREE.SphereGeometry(.05, 8, 6), mat(0xfff1b8, { flatShading: true }), 0, .07, 0, pipocaCopo);
+  copo.visible = pacote.visible = pipocaCopo.visible = false;
 
   // holograma de status
   const holo = new THREE.Group(); raiz.add(holo);
@@ -700,7 +803,7 @@ function criarBoneco(a) {
 
   raiz.traverse(o => { o.userData.agenteId = a.id; });
   scene.add(raiz);
-  return { raiz, corpo, bracoE, bracoD, pernaE, pernaD, holo, anel, alerta, ok, div, nm, rot, copo, pacote, balao, balaoTxt, balaoAte: 0,
+  return { raiz, corpo, bracoE, bracoD, pernaE, pernaD, holo, anel, alerta, ok, div, nm, rot, copo, pacote, pipocaCopo, balao, balaoTxt, balaoAte: 0,
     lugar: null, destino: null, passos: [], pausaAte: 0, liberado: 0, chegada: 0, saida: 0,
     livreAlvo: 'pe', livreAte: 0, descansoAte: performance.now() + 4000 + h % 20000, item: null,
     sofa: null, passeio: null, conversa: null, conversaAnterior: null };
@@ -719,8 +822,10 @@ function ida(a, lugar) {
   switch (lugar) {
     case 'pe': return [];
     case 'cadeira': return [{ p: V(x, 0, z + .75) }];
-    case 'cafe': return [...corredor, V(CORR_X, 0, 2.7), V(CAFE_PE.x, 0, 2.7), CAFE_PE.clone()].map(p => ({ p }));
-    case 'snack': return [...corredor, V(CORR_X, 0, 2.7), V(SNACK_PE.x, 0, 2.7), SNACK_PE.clone()].map(p => ({ p }));
+    // copa no fundo à esquerda: sobe pelo vão da mesa até o corredor do fundo e segue até a bancada
+    case 'cafe': return [V(p.x, 0, FUNDO_Z), V(CAFE_PE.x, 0, FUNDO_Z), CAFE_PE.clone()].map(p => ({ p }));
+    case 'snack': return [V(p.x, 0, FUNDO_Z), V(SNACK_PE.x, 0, FUNDO_Z), SNACK_PE.clone()].map(p => ({ p }));
+    case 'pipoca': return [V(p.x, 0, FUNDO_Z), V(PIPOCA_PE.x, 0, FUNDO_Z), PIPOCA_PE.clone()].map(p => ({ p }));
     case 'reuniao': {
       const s = ASSENTOS[a.mesa % ASSENTOS.length];
       const base = [...corredor, V(7.4, 0, CORR_Z), V(7.4, 0, -2.3)];
@@ -749,6 +854,7 @@ function posFinal(a, lugar) {
     case 'reuniao': { const s = ASSENTOS[a.mesa % ASSENTOS.length]; return { p: s.p.clone(), rot: s.rot, sentado: true }; }
     case 'cafe': return { p: CAFE_PE.clone(), rot: Math.PI, sentado: false };
     case 'snack': return { p: SNACK_PE.clone(), rot: Math.PI, sentado: false };
+    case 'pipoca': return { p: PIPOCA_PE.clone(), rot: Math.PI, sentado: false };
     case 'fora': return { p: PORTA.clone(), rot: 0, sentado: false };
     case 'sofa': return { p: V(bonecos.get(a.id).sofa.x, 0, SOFA_Z), rot: Math.PI, sentado: true };
     case 'passeio': { const s = bonecos.get(a.id).passeio; return { p: s.p.clone(), rot: s.rot, sentado: false }; }
@@ -792,7 +898,7 @@ const SOFA = [8.1, 9.9];
 const PASSEIOS = [
   { p: V(-1.5, 0, -5.9), rot: Math.PI },      // olhando o telão
   { p: V(-10.6, 0, -3.4), rot: -Math.PI / 2 }, // olhando o jardim vertical
-  { p: V(4.3, 0, -6.0), rot: Math.PI },       // perto da planta do fundo
+  { p: V(3.85, 0, -5.4), rot: Math.PI },      // lendo a frase do dia
   { p: V(-6.2, 0, 4.3), rot: 0 }              // perto da entrada
 ];
 const RODAS = [[V(-4.6, 0, 4.4), V(-3.8, 0, 4.4)], [V(1.4, 0, 4.4), V(2.2, 0, 4.4)], [V(5.6, 0, 4.4), V(6.4, 0, 4.4)]];
@@ -806,6 +912,7 @@ function voltarAoPc(b, agora) {
 window.salaDebug = () => equipe.map(a => { const b = bonecos.get(a.id); return a.id + ' ' + statusVisto(a) + ' ' + b.lugar + '>' + b.livreAlvo + ' passos:' + b.passos.length; });
 
 let proximoLazer = 0;
+let cafeProntoAte = 0;   // a Lourdes avisou que o café está pronto
 function agendarLazer(agora) {
   if (reduz || agora < proximoLazer || expedienteAtual === false) return;
   proximoLazer = agora + 5000 + Math.random() * 5000;
@@ -832,8 +939,11 @@ function agendarLazer(agora) {
   }
 
   const { b } = parados[Math.floor(Math.random() * parados.length)];
+  // depois que a Lourdes avisa que o café ficou pronto, a maioria vai buscar café
+  if (agora < cafeProntoAte && Math.random() < .75) { b.livreAlvo = 'cafe'; b.livreAte = agora + 6000 + Math.random() * 4000; return; }
   if (sorteio < .55) { b.livreAlvo = 'cafe'; b.livreAte = agora + 6000 + Math.random() * 4000; }
-  else if (sorteio < .7) { b.livreAlvo = 'snack'; b.livreAte = agora + 5000 + Math.random() * 3000; }
+  else if (sorteio < .63) { b.livreAlvo = 'snack'; b.livreAte = agora + 5000 + Math.random() * 3000; }
+  else if (sorteio < .7) { b.livreAlvo = 'pipoca'; b.livreAte = agora + 5000 + Math.random() * 3000; }
   else if (sorteio < 0) {   // sofá desligado: livre não senta
     const usados = new Set(livres.filter(x => x.b.livreAlvo === 'sofa').map(x => x.b.sofa.x));
     const assento = SOFA.find(x => !usados.has(x));
@@ -991,6 +1101,7 @@ function atualizarBoneco(a, b, t, dt, agora) {
   b.digitando = st === 'trabalhando';
   b.copo.visible = b.item === 'cafe';
   b.pacote.visible = b.item === 'snack';
+  b.pipocaCopo.visible = b.item === 'pipoca';
 
   if (b.passos.length) {
     b.holo.visible = false; b.rot.position.y = 2.0;
@@ -1010,9 +1121,9 @@ function atualizarBoneco(a, b, t, dt, agora) {
       b.passos.shift();
       if (!b.passos.length) {
         b.lugar = b.destino;
-        if (b.lugar === 'cafe' || b.lugar === 'snack') b.item = b.lugar;
+        if (b.lugar === 'cafe' || b.lugar === 'snack' || b.lugar === 'pipoca') b.item = b.lugar;
         // às vezes comenta algo sozinho ao chegar no café, no sofá ou no passeio
-        if (['cafe', 'snack', 'sofa', 'passeio'].includes(b.lugar) && Math.random() < .5) falar(b, sortear(FALAS[a.id] || MAQUINAS), agora);
+        if (['cafe', 'snack', 'pipoca', 'sofa', 'passeio'].includes(b.lugar) && Math.random() < .5) falar(b, sortear(FALAS[a.id] || MAQUINAS), agora);
         if (b.lugar === 'pe' || b.lugar === 'cadeira' || b.lugar === 'reuniao' || b.lugar === 'fora') b.item = null;
         const f = posFinal(a, b.lugar); if (f.rot !== null) b.raiz.rotation.y = f.rot;
       }
@@ -1151,7 +1262,8 @@ const VISTAS = {
   geral: { pos: V(9, 11, 17), alvo: V(0, .8, 0) },
   ponto: { pos: V(-6.8, 3.2, 9.5), alvo: V(-10, 1.1, 4.2) },
   reuniao: { pos: V(5.2, 5.2, 2.6), alvo: V(9, .8, -4.3) },
-  copa: { pos: V(5, 3.6, 8.5), alvo: V(9, 1, 2.5) }
+  copa: { pos: V(-8.4, 3.6, -0.6), alvo: V(-9, .9, -6.6) },
+  quadro: { pos: V(5.1, 2.3, -1.6), alvo: V(5.1, 2.2, -6.9) }   // um pouco à direita, para o painel da equipe não cobrir o quadro
 };
 let vistaAlvo = null;
 function irPara(nome) {
@@ -1161,9 +1273,51 @@ function irPara(nome) {
 document.getElementById('atalhos').addEventListener('click', e => { const bt = e.target.closest('button'); if (bt) irPara(bt.dataset.vista); });
 controls.addEventListener('start', () => { vistaAlvo = null; });
 
+// ---------- Lourdes, da copa ----------
+// Não é agente: cuida do café. De tempos em tempos passa um café novo e avisa quando ficou pronto;
+// aí boa parte de quem está livre vai até a copa.
+const lourdes = criarBoneco({ id: 'lourdes', nome: 'Lourdes', funcao: 'Café', cor: '#c0392b', genero: 'f',
+  aparencia: { pele: '#b97d55', cabelo: 'coque', corCabelo: '#d6d0c8', barba: false, oculos: true, tatuagem: false, calca: '#3a3a48' } });
+lourdes.nm.textContent = 'Lourdes · Café';
+lourdes.div.style.color = '#ffb36b';
+lourdes.holo.visible = false;
+const LOURDES_CASA = V(-6.5, 0, -6.1);
+const MAQUINA_CAFE = V(-7.7, 0, -6.6);
+lourdes.raiz.position.copy(LOURDES_CASA);
+const FALAS_LOURDES = ['Quem quer um biscoitinho?', 'Não esquece de beber água, hein!', 'Já já sai café novo.', 'Essa pipoca tá uma delícia.', 'Lavei as xícaras, viu?'];
+let lourdesFase = 'pausa', lourdesAte = performance.now() + 20000, lourdesConversa = performance.now() + 45000;
+function cuidarDaLourdes(t, agora) {
+  const visivel = expedienteAtual !== false;
+  lourdes.raiz.visible = lourdes.rot.visible = visivel;
+  lourdes.balao.visible = visivel && agora < lourdes.balaoAte;
+  if (!visivel) return;
+  lourdes.balao.position.y = 2.75;
+  if (lourdesFase === 'pausa' && agora > lourdesAte) {
+    lourdesFase = 'passando'; lourdesAte = agora + 9000;
+    falar(lourdes, 'Passando um cafezinho…', agora, 4500);
+  } else if (lourdesFase === 'passando' && agora > lourdesAte) {
+    lourdesFase = 'pronto'; lourdesAte = agora + 6000;
+    falar(lourdes, 'Café fresquinho pronto, gente!', agora, 6000);
+    cafeProntoAte = agora + 60000;
+  } else if (lourdesFase === 'pronto' && agora > lourdesAte) {
+    lourdesFase = 'pausa'; lourdesAte = agora + 100000 + Math.random() * 60000;
+  } else if (lourdesFase === 'pausa' && agora > lourdesConversa && agora > lourdes.balaoAte) {
+    falar(lourdes, sortear(FALAS_LOURDES), agora, 4000);
+    lourdesConversa = agora + 40000 + Math.random() * 40000;
+  }
+  // passando café: virada para a máquina, braço trabalhando; senão olhando a sala
+  const fazendo = lourdesFase === 'passando';
+  lourdes.raiz.rotation.y = fazendo ? Math.atan2(MAQUINA_CAFE.x - LOURDES_CASA.x, MAQUINA_CAFE.z - LOURDES_CASA.z) : Math.sin(t * .3) * .4;
+  lourdes.item = lourdesFase === 'pronto' ? 'cafe' : null;
+  lourdes.copo.visible = lourdes.item === 'cafe';
+  pose(lourdes, false, t, false);
+  if (fazendo && !reduz) lourdes.bracoD.rotation.x = -1.1 + Math.sin(t * 5) * .15;
+}
+
 function loop() {
   const dt = Math.min(relogio.getDelta(), .05), t = relogio.elapsedTime, agora = performance.now();
-  if (t - ultimaTela > .12) { checarExpediente(); desenharTelas(t); ultimaTela = t; }
+  if (t - ultimaTela > .12) { checarExpediente(); desenharTelas(t); desenharQuadro(agoraReal()); ultimaTela = t; }
+  cuidarDaLourdes(t, agora);
   agendarLazer(agora);
   conduzirConversas(agora);
   equipe.forEach(a => { const b = bonecos.get(a.id); if (b) atualizarBoneco(a, b, t, dt, agora); });
