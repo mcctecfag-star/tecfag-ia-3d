@@ -26,7 +26,7 @@ Cada um é chamado pelo nome ("Rafa, …"), pela função ("Tráfego, …"), pel
 ## Como funciona
 
 - Os ganchos do Claude Code chamam `agentes-hook.js`, que atualiza `equipe.json` e `equipe.js` quando uma mensagem fala com um agente ("Tráfego, revisa...", "@dados ...", "manda a Curadoria ...").
-- `ponte.js` (abra com `iniciar-ponte.bat` e deixe a janela aberta):
+- `ponte.js` roda sem janela, pela tarefa "Tecfag IA - ponte" do Agendador do Windows, que liga ao entrar no computador (`instalar-ponte-oculta.ps1` cria a tarefa; `ligar-ponte.bat` e `parar-ponte.bat` ligam e desligam; o registro fica em `ponte.log`). Ela:
   - publica a sala no Firebase a cada mudança;
   - recebe os pedidos feitos pela caixa "Pedir tarefa" do site e roda o Claude Code de terminal. Respostas completas ficam em `resultados/`.
 - Só as contas `mcctecfag@gmail.com` e `tecfagfinanceiro3@gmail.com` podem mandar e ver pedidos (`regras-firebase.json`; aplique com `node ponte.js regras`).

@@ -232,6 +232,7 @@ const hex6 = n => '#' + n.toString(16).padStart(6, '0');
 const MESAS = [];
 for (const z of [-3, 1.5]) for (const x of [-6, -3, 0, 3]) MESAS.push([x, z]);
 MESAS.push([-9, 1.5]);   // mesa 8, perto da entrada (Rotina)
+MESAS.push([-9, -3]);    // mesa 9, em frente ao jardim vertical (E-commerce)
 const CORR_Z = -0.6, FRENTE_Z = 4.6, CORR_X = 5.2;
 const PORTA = V(-11.6, 0, 5.6);
 const PONTO = V(-11.05, 0, 4.3);     // onde a pessoa para, de frente para o totem ao lado da porta
@@ -239,7 +240,8 @@ const CAFE_PE = V(-7.7, 0, -5.75), SNACK_PE = V(-11.2, 0, -5.6), PIPOCA_PE = V(-
 const FUNDO_Z = -5.0;   // corredor do fundo, entre as mesas e a copa
 const ASSENTOS = [7.8, 8.6, 9.4, 10.2].map(x => ({ p: V(x, 0, -3.05), rot: Math.PI, frente: true }))
   .concat([7.8, 8.6, 9.4, 10.2].map(x => ({ p: V(x, 0, -5.55), rot: 0, frente: false })))
-  .concat([{ p: V(7.0, 0, -4.3), rot: Math.PI / 2, cabeceira: true }]);   // cabeceira, para a 9ª pessoa
+  .concat([{ p: V(7.0, 0, -4.3), rot: Math.PI / 2, cabeceira: true }])     // cabeceira, para a 9ª pessoa
+  .concat([{ p: V(11.0, 0, -4.3), rot: -Math.PI / 2, cabeceiraFundo: true }]);   // outra cabeceira, para a 10ª
 
 // ---------- relógio e expediente ----------
 // Para testar: ?hora=07:59 (e opcional &dia=1 a 5). ?demo=1 mostra status de exemplo.
@@ -832,6 +834,7 @@ function ida(a, lugar) {
       const base = [...corredor, V(7.4, 0, CORR_Z), V(7.4, 0, -2.3)];
       const fim = s.frente ? [V(s.p.x, 0, -2.4), s.p.clone()]
         : s.cabeceira ? [V(6.8, 0, -2.4), V(6.8, 0, s.p.z), s.p.clone()]
+        : s.cabeceiraFundo ? [V(6.8, 0, -2.4), V(6.8, 0, -6.3), V(s.p.x, 0, -6.3), s.p.clone()]
         : [V(6.8, 0, -2.4), V(6.8, 0, -6.3), V(s.p.x, 0, -6.3), s.p.clone()];
       return [...base, ...fim].map(p => ({ p }));
     }
@@ -968,6 +971,7 @@ const FALAS = {
   designer: ['Fiz um layout novo pro Summit', 'Máquina em fundo limpo chama mais atenção', 'Ajustei as cores da Personnalité', 'O motion da envasadora ficou pronto', 'Quero refazer a foto da rotuladora'],
   dados: ['O painel de leads por máquina tá pronto', 'Cruzei os leads do Meta com o CRM', 'Fim de semana sempre cai o volume', 'A Personnalité tem ticket maior', 'Vou separar os dados por região'],
   automacao: ['Montei um fluxo pra quem baixou catálogo', 'Assunto curto abre mais e-mail', 'Segmentei os leads de alimentos', 'O disparo de amanhã já tá agendado', 'Nutrição pra quem pediu orçamento e sumiu'],
+  ecommerce: ['Atualizei os números do e-commerce', 'Vou conferir os pedidos do site', 'O catálogo da loja precisa de ajuste', 'Tem carrinho abandonado para olhar', 'O artefato do e-commerce está em dia'],
   rotina: ['O relatório das 8h já saiu', 'Conferi os gastos de ontem', 'Segunda tem revisão das campanhas', 'Organizei as pastas do servidor', 'Lembrete: atualizar o catálogo']
 };
 const RESPOSTAS = ['Boa! Me manda depois?', 'Faz sentido', 'Bora testar!', 'Anotado', 'Concordo total', 'Isso ajuda muito aqui', 'Vou falar com o time', 'Show, me avisa'];
