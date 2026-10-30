@@ -257,7 +257,8 @@ const DEMO = qs.get('demo') === '1';
 if (DEMO) document.getElementById('demo').hidden = false;
 const agoraReal = () => new Date(Date.now() + deslocamento);
 const diaUtil = d => d.getDay() >= 1 && d.getDay() <= 5;
-const noExpediente = d => diaUtil(d) && d.getHours() >= 8 && d.getHours() < 18;
+// Entrada às 08:00; a saída começa às 18:03.
+const noExpediente = d => { const m = d.getHours() * 60 + d.getMinutes(); return diaUtil(d) && m >= 480 && m < 1083; };
 
 // ---------- renderer ----------
 const host = document.getElementById('cena');
@@ -913,6 +914,7 @@ function voltarAoPc(b, agora) {
 }
 
 // diagnóstico no console do navegador: salaDebug()
+window.lourdesDebug = () => lourdesFase + ' passos:' + lourdesPassos.length + ' vassoura:' + vassoura.visible + ' bandeja:' + bandeja.visible;
 window.salaDebug = () => equipe.map(a => { const b = bonecos.get(a.id); return a.id + ' ' + statusVisto(a) + ' ' + b.lugar + '>' + b.livreAlvo + ' passos:' + b.passos.length; });
 
 let proximoLazer = 0;
@@ -1081,7 +1083,7 @@ function checarExpediente() {
   expedienteAtual = dentro;
   if (!primeira) {
     const agora = performance.now();
-    equipe.forEach((a, i) => { const b = bonecos.get(a.id); if (!b) return; if (dentro) b.chegada = agora + i * 2500; else b.saida = agora + i * 2500; });
+    equipe.forEach((a, i) => { const b = bonecos.get(a.id); if (!b) return; if (dentro) b.chegada = agora + i * 2500; else b.saida = agora + i * 5000 + Math.random() * 8000; });
   }
   ultimoJson = ''; renderPainel(dadosAtuais);
 }
@@ -1206,7 +1208,7 @@ function desenharTelas(t) {
     tp.g.fillStyle = '#e6f1f5'; tp.g.font = '700 78px Chakra Petch, sans-serif';
     tp.g.fillText(agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), 160, 142);
     tp.g.fillStyle = '#8aa6b2'; tp.g.font = '600 24px Chakra Petch, sans-serif';
-    tp.g.fillText(flash ? pontoNome : 'entrada 08:00 · saída 18:00', 160, 200);
+    tp.g.fillText(flash ? pontoNome : 'entrada 08:00 · saída 18:03', 160, 200);
     tp.t.needsUpdate = true;
     ledPonto.material.color.setHex(flash ? 0x5fe08f : 0x1d3b2a);
     aro.material.color.setHex(flash ? 0x5fe08f : 0x54d6ff);
@@ -1244,7 +1246,7 @@ function desenharTelas(t) {
   if (!expedienteAtual) {
     g.textAlign = 'left'; g.font = '700 74px Chakra Petch, sans-serif'; g.fillText('FORA DO EXPEDIENTE', 48, 220);
     g.fillStyle = '#8aa6b2'; g.font = '600 28px Chakra Petch, sans-serif';
-    g.fillText('Equipe trabalha de segunda a sexta, das 08:00 às 18:00', 48, 280);
+    g.fillText('Equipe trabalha de segunda a sexta, das 08:00 às 18:03', 48, 280);
   } else {
     const cont = k => equipe.filter(a => statusVisto(a) === k).length;
     [['trabalhando', 'TRABALHANDO', '#e3b448'], ['reuniao', 'EM REUNIÃO', '#b18cff'], ['esperando', 'ESPERANDO VOCÊ', '#ff8a5c'], ['livre', 'LIVRES', '#8ea3a8']].forEach(([k, rot, cor], i) => {
@@ -1279,48 +1281,149 @@ document.getElementById('atalhos').addEventListener('click', e => { const bt = e
 controls.addEventListener('start', () => { vistaAlvo = null; });
 
 // ---------- Lourdes, da copa ----------
-// Não é agente: cuida do café. De tempos em tempos passa um café novo e avisa quando ficou pronto;
-// aí boa parte de quem está livre vai até a copa.
+// Não é agente: cuida do café e do escritório. Passa café e avisa quando fica pronto, varre a sala
+// e de vez em quando leva café ou pipoca para alguém na mesa. É só ambientação: não mexe nos status.
 const lourdes = criarBoneco({ id: 'lourdes', nome: 'Lourdes', funcao: 'Café', cor: '#c0392b', genero: 'f',
   aparencia: { pele: '#b97d55', cabelo: 'coque', corCabelo: '#d6d0c8', barba: false, oculos: true, tatuagem: false, calca: '#3a3a48' } });
-lourdes.nm.textContent = 'Lourdes · Café';
+lourdes.nm.textContent = 'Lourdes · Café e limpeza';
 lourdes.div.style.color = '#ffb36b';
 lourdes.holo.visible = false;
 const LOURDES_CASA = V(-6.5, 0, -6.1);
 const MAQUINA_CAFE = V(-7.7, 0, -6.6);
 lourdes.raiz.position.copy(LOURDES_CASA);
+// vassoura e bandeja, presas na mão direita
+const vassoura = new THREE.Group(); vassoura.position.set(0, -.5, .05); vassoura.rotation.x = 1.0; lourdes.bracoD.add(vassoura);
+{
+  const cabo = new THREE.Mesh(new THREE.CylinderGeometry(.014, .014, 1.2, 8), mat(0x8a6a44)); cabo.position.y = -.3; vassoura.add(cabo);
+  const palha = new THREE.Mesh(new THREE.BoxGeometry(.24, .13, .06), mat(0xd9b65c, { roughness: .9 })); palha.position.y = -.95; vassoura.add(palha);
+}
+const bandeja = new THREE.Group(); bandeja.position.set(0, -.52, .12); lourdes.bracoD.add(bandeja);
+{
+  const prato = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .015, 20), mat(0xc4ccd2, { metalness: .7, roughness: .3 })); bandeja.add(prato);
+  const xic = new THREE.Mesh(new THREE.CylinderGeometry(.04, .03, .07, 12), mat(0xffffff)); xic.position.set(-.06, .04, 0); bandeja.add(xic);
+  const pip = new THREE.Mesh(new THREE.CylinderGeometry(.05, .035, .1, 12), mat(0xc0392b)); pip.position.set(.07, .055, 0); bandeja.add(pip);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(.05, 8, 6), mat(0xfff1b8, { flatShading: true })); top.position.set(.07, .115, 0); bandeja.add(top);
+}
+vassoura.visible = bandeja.visible = false;
+
 const FALAS_LOURDES = ['Quem quer um biscoitinho?', 'Não esquece de beber água, hein!', 'Já já sai café novo.', 'Essa pipoca tá uma delícia.', 'Lavei as xícaras, viu?'];
-let lourdesFase = 'pausa', lourdesAte = performance.now() + 20000, lourdesConversa = performance.now() + 45000;
+const FALAS_LIMPEZA = ['Deixa eu dar uma varridinha aqui.', 'Olha a sujeira, gente!', 'Levanta o pé, meu filho.', 'Escritório limpo, cabeça limpa.'];
+const GRATIDAO = ['Valeu, Lourdes!', 'Salvou meu dia!', 'Obrigada, Lourdes!', 'Era disso que eu precisava.'];
+// vãos entre as mesas, onde dá para andar e varrer
+const VAOS = [-7.5, -4.5, -1.5, 1.5, 4.5];
+const LOURDES_VEL = 1.15;
+let lourdesFase = 'casa', lourdesAte = performance.now() + 15000;
+let lourdesProximoCafe = performance.now() + 20000, lourdesConversa = performance.now() + 45000;
+let lourdesPassos = [], lourdesDepois = null, lourdesOlhar = null, entrega = null;
+
+function lourdesIr(destino, depois) {
+  const saida = V(LOURDES_CASA.x, 0, FUNDO_Z);
+  lourdesPassos = [saida, V(destino.x, 0, FUNDO_Z), destino.clone()];
+  lourdesFase = 'andando'; lourdesDepois = depois;
+}
+function lourdesVoltar() {
+  const p = lourdes.raiz.position;
+  lourdesPassos = [V(p.x, 0, FUNDO_Z), V(LOURDES_CASA.x, 0, FUNDO_Z), LOURDES_CASA.clone()];
+  lourdesFase = 'andando'; lourdesDepois = () => { lourdesFase = 'casa'; lourdesAte = performance.now() + 15000 + Math.random() * 25000; };
+}
+function lourdesEscolherTarefa(agora) {
+  if (Math.random() < .55) {
+    // varrer um pedaço do escritório
+    const destino = V(sortear(VAOS), 0, Math.random() < .5 ? CORR_Z : FRENTE_Z - .2);
+    vassoura.visible = true;
+    lourdesIr(destino, () => {
+      lourdesFase = 'limpando'; lourdesAte = performance.now() + 7000;
+      falar(lourdes, sortear(FALAS_LIMPEZA), performance.now(), 3500);
+    });
+    return;
+  }
+  // levar café ou pipoca: prefere quem está trabalhando; quem estiver andando fica de fora
+  const presentes = equipe.map(a => ({ a, b: bonecos.get(a.id) })).filter(({ b }) => b && !b.passos.length && (b.lugar === 'cadeira' || b.lugar === 'pe'));
+  const trabalhando = presentes.filter(({ a }) => statusVisto(a) === 'trabalhando');
+  const lista = trabalhando.length ? trabalhando : presentes;
+  if (!lista.length) { lourdesAte = agora + 15000; return; }
+  const alvo = sortear(lista), [mx, mz] = MESAS[alvo.a.mesa];
+  const item = Math.random() < .6 ? 'cafe' : 'pipoca';
+  bandeja.visible = true;
+  lourdesIr(V(mx + 1.15, 0, mz + 1.0), () => {
+    lourdesFase = 'entregando'; lourdesAte = performance.now() + 4500;
+    lourdesOlhar = V(mx, 0, mz + .75);
+    falar(lourdes, item === 'cafe' ? 'Trouxe um cafezinho pra você!' : 'Olha a pipoquinha quentinha!', performance.now(), 3200);
+    entrega = { alvo, item };
+  });
+}
+
 function cuidarDaLourdes(t, agora) {
   const visivel = expedienteAtual !== false;
   lourdes.raiz.visible = lourdes.rot.visible = visivel;
   lourdes.balao.visible = visivel && agora < lourdes.balaoAte;
   if (!visivel) return;
   lourdes.balao.position.y = 2.75;
-  if (lourdesFase === 'pausa' && agora > lourdesAte) {
-    lourdesFase = 'passando'; lourdesAte = agora + 9000;
-    falar(lourdes, 'Passando um cafezinho…', agora, 4500);
+  lourdes.rot.position.y = 2.32;
+
+  // quem recebeu fica com o item um tempo na mão e agradece
+  if (entrega && agora > lourdesAte - 2500) {
+    const { alvo, item } = entrega; entrega = null;
+    if (alvo.b.lugar === 'cadeira' || alvo.b.lugar === 'pe') {
+      alvo.b.item = item; alvo.b.itemEntregueAte = agora + 20000;
+      falar(alvo.b, sortear(GRATIDAO), agora, 3000);
+    }
+    bandeja.visible = false;
+  }
+  equipe.forEach(a => { const b = bonecos.get(a.id); if (b && b.itemEntregueAte && agora > b.itemEntregueAte) { b.itemEntregueAte = 0; if (b.lugar === 'cadeira' || b.lugar === 'pe') b.item = null; } });
+
+  let andando = false;
+  if (lourdesFase === 'andando') {
+    andando = true;
+    const alvo = lourdesPassos[0];
+    tmp.subVectors(alvo, lourdes.raiz.position); tmp.y = 0;
+    const d = tmp.length(), passo = LOURDES_VEL * Math.min(relogioDt, .05);
+    if (d > .001) lourdes.raiz.rotation.y = Math.atan2(tmp.x, tmp.z);
+    if (d <= passo) { lourdes.raiz.position.copy(alvo); lourdesPassos.shift(); if (!lourdesPassos.length) { const f = lourdesDepois; lourdesDepois = null; if (f) f(); } }
+    else lourdes.raiz.position.addScaledVector(tmp.normalize(), passo);
+  } else if (lourdesFase === 'limpando') {
+    if (agora > lourdesAte) { vassoura.visible = false; lourdesVoltar(); }
+  } else if (lourdesFase === 'entregando') {
+    if (agora > lourdesAte) { lourdesOlhar = null; lourdesVoltar(); }
+  } else if (lourdesFase === 'casa') {
+    if (agora > lourdesProximoCafe) {
+      lourdesFase = 'passando'; lourdesAte = agora + 9000;
+      falar(lourdes, 'Passando um cafezinho…', agora, 4500);
+    } else if (agora > lourdesAte) {
+      lourdesEscolherTarefa(agora);
+    } else if (agora > lourdesConversa && agora > lourdes.balaoAte) {
+      falar(lourdes, sortear(FALAS_LOURDES), agora, 4000);
+      lourdesConversa = agora + 40000 + Math.random() * 40000;
+    }
   } else if (lourdesFase === 'passando' && agora > lourdesAte) {
     lourdesFase = 'pronto'; lourdesAte = agora + 6000;
     falar(lourdes, 'Café fresquinho pronto, gente!', agora, 6000);
     cafeProntoAte = agora + 60000;
+    lourdesProximoCafe = agora + 150000 + Math.random() * 90000;
   } else if (lourdesFase === 'pronto' && agora > lourdesAte) {
-    lourdesFase = 'pausa'; lourdesAte = agora + 100000 + Math.random() * 60000;
-  } else if (lourdesFase === 'pausa' && agora > lourdesConversa && agora > lourdes.balaoAte) {
-    falar(lourdes, sortear(FALAS_LOURDES), agora, 4000);
-    lourdesConversa = agora + 40000 + Math.random() * 40000;
+    lourdesFase = 'casa'; lourdesAte = agora + 15000 + Math.random() * 20000;
   }
-  // passando café: virada para a máquina, braço trabalhando; senão olhando a sala
-  const fazendo = lourdesFase === 'passando';
-  lourdes.raiz.rotation.y = fazendo ? Math.atan2(MAQUINA_CAFE.x - LOURDES_CASA.x, MAQUINA_CAFE.z - LOURDES_CASA.z) : Math.sin(t * .3) * .4;
-  lourdes.item = lourdesFase === 'pronto' ? 'cafe' : null;
-  lourdes.copo.visible = lourdes.item === 'cafe';
-  pose(lourdes, false, t, false);
-  if (fazendo && !reduz) lourdes.bracoD.rotation.x = -1.1 + Math.sin(t * 5) * .15;
+
+  // para onde olha e o que faz com os braços
+  const naCasa = lourdesFase === 'casa' || lourdesFase === 'passando' || lourdesFase === 'pronto';
+  if (lourdesFase === 'passando') lourdes.raiz.rotation.y = Math.atan2(MAQUINA_CAFE.x - LOURDES_CASA.x, MAQUINA_CAFE.z - LOURDES_CASA.z);
+  else if (naCasa) lourdes.raiz.rotation.y = Math.sin(t * .3) * .4;
+  else if (lourdesFase === 'entregando' && lourdesOlhar) lourdes.raiz.rotation.y = Math.atan2(lourdesOlhar.x - lourdes.raiz.position.x, lourdesOlhar.z - lourdes.raiz.position.z);
+  lourdes.item = lourdesFase === 'pronto' ? 'cafe' : (bandeja.visible || vassoura.visible) ? 'na-mao' : null;
+  lourdes.copo.visible = lourdesFase === 'pronto';
+  pose(lourdes, false, t, andando);
+  if (lourdesFase === 'passando' && !reduz) lourdes.bracoD.rotation.x = -1.1 + Math.sin(t * 5) * .15;
+  if (lourdesFase === 'limpando' && !reduz) {
+    lourdes.bracoD.rotation.x = -.7 + Math.sin(t * 5) * .25;
+    lourdes.bracoE.rotation.x = -.7 + Math.sin(t * 5) * .25;
+    lourdes.raiz.rotation.y += Math.sin(t * 2.5) * .01;
+  }
 }
 
+let relogioDt = 0;
 function loop() {
   const dt = Math.min(relogio.getDelta(), .05), t = relogio.elapsedTime, agora = performance.now();
+  relogioDt = dt;
   if (t - ultimaTela > .12) { checarExpediente(); desenharTelas(t); desenharQuadro(agoraReal()); ultimaTela = t; }
   cuidarDaLourdes(t, agora);
   agendarLazer(agora);
@@ -1400,9 +1503,9 @@ function pontoHoje() {
   const d = agoraReal();
   if (!diaUtil(d)) return { entrada: null, saida: null };
   const min = d.getHours() * 60 + d.getMinutes();
-  return { entrada: min >= 480 ? '08:00' : null, saida: min >= 1080 ? '18:00' : null };
+  return { entrada: min >= 480 ? '08:00' : null, saida: min >= 1083 ? '18:03' : null };
 }
-function hojeAs(h) { const d = agoraReal(); d.setHours(h, 0, 0, 0); return d.toISOString(); }
+function hojeAs(h, m = 0) { const d = agoraReal(); d.setHours(h, m, 0, 0); return d.toISOString(); }
 
 // Rostinho simples de cada um para as fichas (mesma pele, cabelo, óculos e barba do boneco).
 function rostinho(a) {
@@ -1467,7 +1570,7 @@ function renderPainel(dados) {
   if (!equipe.length) fichas.textContent = 'Nenhum agente no arquivo equipe.js ainda.';
 
   const res = document.getElementById('resumo'); res.replaceChildren();
-  if (fora) res.textContent = 'Fora do expediente · seg a sex, 08:00 às 18:00';
+  if (fora) res.textContent = 'Fora do expediente · seg a sex, 08:00 às 18:03';
   else [['trabalhando', 'trabalhando'], ['reuniao', 'em reunião'], ['esperando', 'esperando você'], ['livre', 'livres']].forEach(([k, rot]) => {
     const s = document.createElement('span'), b = document.createElement('b');
     b.textContent = equipe.filter(a => statusVisto(a) === k).length; s.append(b, ' ' + rot); res.appendChild(s);
@@ -1476,7 +1579,7 @@ function renderPainel(dados) {
   const ol = document.getElementById('mural'); ol.replaceChildren();
   const registros = [];
   if (ponto.entrada) registros.push({ quem: 'Ponto', texto: 'Equipe bateu ponto de entrada às 08:00', quando: hojeAs(8) });
-  if (ponto.saida) registros.push({ quem: 'Ponto', texto: 'Equipe bateu ponto de saída às 18:00', quando: hojeAs(18) });
+  if (ponto.saida) registros.push({ quem: 'Ponto', texto: 'Equipe bateu ponto de saída às 18:03', quando: hojeAs(18, 3) });
   const itens = (dados && Array.isArray(dados.mural) ? dados.mural : []).concat(registros)
     .sort((a, b) => String(b.quando).localeCompare(String(a.quando))).slice(0, 12);
   if (!itens.length) { const li = document.createElement('li'); li.textContent = 'Sem atividade ainda.'; ol.appendChild(li); }

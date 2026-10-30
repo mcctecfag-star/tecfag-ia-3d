@@ -20,6 +20,7 @@ Sala 3D onde a equipe de agentes de IA da Tecfag aparece trabalhando.
 | Téo | Dados e relatórios | dashboard, relatório semanal/mensal, ROAS; Kondado |
 | Ana | Automação de marketing | RD Station, e-mail, fluxos, segmentação |
 | Beto | Rotina | tarefas agendadas e recorrentes |
+| Vivi | E-commerce | e-commerce, VTEX, loja virtual, vendas do site |
 
 Cada um é chamado pelo nome ("Rafa, …"), pela função ("Tráfego, …"), pelo assunto da mensagem ou quando o Claude usa a skill ou o conector daquela função (campos `gatilhos`, `skills` e `ferramentas` em `equipe.json`). Vários na mesma tarefa: "Rafa e Bia, …"; com a palavra "reunião" eles vão para a sala de reunião.
 
