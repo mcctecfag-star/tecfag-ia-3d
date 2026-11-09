@@ -21,6 +21,10 @@ Sala 3D onde a equipe de agentes de IA da Tecfag aparece trabalhando.
 | Ana | Automação de marketing | RD Station, e-mail, fluxos, segmentação |
 | Beto | Rotina | tarefas agendadas e recorrentes |
 | Vivi | E-commerce | e-commerce, VTEX, loja virtual, vendas do site |
+| Joy | Revisão de design | sempre que o Caio produz algo (motion, estático, carrossel, edição de imagem) |
+| Lê | Revisão de campanhas | sempre que o Rafa sobe ou altera campanha, conjunto, anúncio ou criativo |
+
+**Revisão antes de entregar:** quando o Caio ou o Rafa fazem algo, o gancho de fim do Claude Code segura a entrega e pede a revisão da Joy ou da Lê, com a lista do que conferir (campos `revisa` e `confere` em `equipe.json`). A Lê só entra quando o Rafa sobe ou altera algo (`quandoFerramenta` e `quandoPedido`), não em análises. A revisão termina com um parágrafo "Revisão da Joy:" ou "Revisão da Lê:".
 
 Cada um é chamado pelo nome ("Rafa, …"), pela função ("Tráfego, …"), pelo assunto da mensagem ou quando o Claude usa a skill ou o conector daquela função (campos `gatilhos`, `skills` e `ferramentas` em `equipe.json`). Vários na mesma tarefa ("Rafa e Bia, …", ou quando outro entra pela skill ou pelo conector) vão para a sala de reunião; quem trabalha sozinho fica na própria mesa.
 
